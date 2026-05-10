@@ -74,13 +74,13 @@ class MoixaClient:
 
     def _get(self, *args: Any, **kwargs: Any) -> requests.Response:
         res = self.session.get(*args, **kwargs, auth=self._auth, timeout=30)
-        if res.status_code == 401 and self._try_refresh():
+        if res.status_code in (401, 403) and self._try_refresh():
             res = self.session.get(*args, **kwargs, auth=self._auth, timeout=30)
         return res
 
     def _post(self, *args: Any, **kwargs: Any) -> requests.Response:
         res = self.session.post(*args, **kwargs, auth=self._auth, timeout=30)
-        if res.status_code == 401 and self._try_refresh():
+        if res.status_code in (401, 403) and self._try_refresh():
             res = self.session.post(*args, **kwargs, auth=self._auth, timeout=30)
         return res
 
