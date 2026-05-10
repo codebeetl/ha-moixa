@@ -118,6 +118,16 @@ pytest tests/ -v
 
 `pytest-homeassistant-custom-component` provides the `hass` fixture and all HA testing infrastructure. All tests mock the Moixa API so no real credentials or network access are needed.
 
+### Releases
+
+Releases are fully automated. Every push to `main` that passes tests triggers the CI workflow, which:
+
+1. Bumps the patch version in `manifest.json` (e.g. `0.1.1` -> `0.1.2`)
+2. Commits the updated manifest back to `main`
+3. Creates a GitHub release tagged with the new version
+
+To trigger a release, just push to `main`. For a minor or major bump, manually edit `manifest.json` to the desired base version (e.g. `0.2.0`) in the same commit - the automation will increment from there on the next push.
+
 ### Project layout
 
 ```
