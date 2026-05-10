@@ -3,11 +3,13 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![License](https://img.shields.io/github/license/ifayers/ha-moixa)](./LICENSE)
 
-Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) GridShare smart battery system. Polls the GridShare cloud API every 5 minutes and exposes power flow and battery state as Home Assistant sensors.
+Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) GridShare smart battery system. Polls the GridShare cloud API every 5 minutes and exposes power flow, battery state, and operation mode as Home Assistant entities.
 
 ---
 
 ## Features
+
+### Sensors
 
 | Sensor | Unit | Description |
 |---|---|---|
@@ -19,7 +21,13 @@ Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) Gr
 | Battery Charging | W | Power flowing into the battery |
 | Battery Discharging | W | Power flowing out of the battery |
 
-All seven sensors share a single **Moixa GridShare** device in Home Assistant.
+### Controls
+
+| Entity | Type | Description |
+|---|---|---|
+| Operation Mode | Select | Switch between **Smart**, **Schedule**, and **Simple** battery modes |
+
+All entities share a single **Moixa GridShare** device in Home Assistant.
 
 ---
 
@@ -52,7 +60,7 @@ All seven sensors share a single **Moixa GridShare** device in Home Assistant.
 1. Go to **Settings -> Devices & services -> Add integration**.
 2. Search for **Moixa** and select it.
 3. Enter the **email address** and **password** from your GridShare account.
-4. The integration authenticates, discovers your site, and creates a device with seven sensor entities.
+4. The integration authenticates, discovers your site, and creates a device with seven sensor entities and one select entity.
 
 There is no YAML configuration. All settings are managed through the UI.
 
@@ -90,6 +98,20 @@ action:
       message: "Exporting {{ states('sensor.moixa_gridshare_grid_export') }} W to the grid."
 ```
 
+### Switch to Smart mode at a set time
+
+```yaml
+trigger:
+  - platform: time
+    at: "06:00:00"
+action:
+  - service: select.select_option
+    target:
+      entity_id: select.moixa_gridshare_operation_mode
+    data:
+      option: smart
+```
+
 ---
 
 ## Diagnostics
@@ -118,6 +140,12 @@ pytest tests/ -v
 
 `pytest-homeassistant-custom-component` provides the `hass` fixture and all HA testing infrastructure. All tests mock the Moixa API so no real credentials or network access are needed.
 
+### Library updates
+
+The bundled `moixa_py/` library is automatically synced from [codebeetl/moixa-api](https://github.com/codebeetl/moixa-api) by a nightly GitHub Actions workflow. When the upstream library changes, the sync workflow commits the updated files and the version-bump CI creates a new release automatically.
+
+To trigger a manual sync: **Actions -> Sync moixa-py library -> Run workflow**.
+
 ### Releases
 
 Releases are fully automated. Every push to `main` that passes tests triggers the CI workflow, which:
@@ -138,16 +166,18 @@ custom_components/moixa/
     coordinator.py       # DataUpdateCoordinator + JTS parser
     diagnostics.py       # diagnostics support
     manifest.json        # HA / HACS metadata
+    select.py            # operation mode select entity
     sensor.py            # 7 sensor entities
     translations/
         en.json          # UI strings
-    moixa_py/            # bundled GridShare API client
+    moixa_py/            # bundled GridShare API client (synced from codebeetl/moixa-api)
 tests/
     conftest.py          # shared fixtures
     const.py             # mock data
     test_coordinator.py  # unit tests for JTS parsing
     test_config_flow.py  # config flow tests
     test_init.py         # setup / unload / error handling
+    test_select.py       # operation mode select entity tests
     test_sensor.py       # sensor entity tests
 ```
 
@@ -155,9 +185,10 @@ tests/
 
 ## Technical notes
 
-- **Authentication**: Moixa uses AWS Cognito SRP for login and SigV4-signed requests. All auth is handled by the bundled `moixa_py` library, which also refreshes tokens automatically on 401 responses.
+- **Authentication**: Moixa uses AWS Cognito SRP for login and SigV4-signed requests. All auth is handled by the bundled `moixa_py` library, which also refreshes tokens automatically on 401 responses. The coordinator additionally performs a full re-login on 403 responses (AWS identity credentials expire after ~1 hour).
 - **Executor wrapping**: The `moixa_py` library is fully synchronous (uses `requests` and `boto3`). Every API call runs in HA's thread-pool executor via `async_add_executor_job` to avoid blocking the event loop.
-- **Poll interval**: 5 minutes. The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
+- **Poll interval**: 5 minutes, 3 API calls per cycle (core readings, device status, operation mode). The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
+- **Operation mode**: The GridShare platform manages a nightly AI-computed schedule (`smart` mode). Switching to `simple` or `schedule` hands control back to fixed rules or a user-defined schedule.
 
 ---
 

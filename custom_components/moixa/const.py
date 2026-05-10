@@ -7,6 +7,6 @@ from datetime import timedelta
 from homeassistant.const import Platform
 
 DOMAIN = "moixa"
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
 
 SCAN_INTERVAL = timedelta(minutes=5)

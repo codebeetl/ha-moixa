@@ -29,6 +29,7 @@ class MoixaData:
     solar_w: float | None
     battery_charging_w: float | None
     battery_discharging_w: float | None
+    operation_mode: str | None
 
 
 def _parse_core_readings(readings: dict) -> dict[str, float | None]:
@@ -63,10 +64,27 @@ def _parse_core_readings(readings: dict) -> dict[str, float | None]:
     }
 
 
+def _parse_soc(status: dict) -> float | None:
+    """Extract battery SOC (as %) from a JTS specificReadings response."""
+    columns: dict[str, dict] = status.get("header", {}).get("columns", {})
+    soc_col = next(
+        (k for k, v in columns.items() if v.get("id") == "storage/SOC"),
+        None,
+    )
+    if soc_col is None:
+        return None
+    raw = status.get("data", [{}])[0].get("f", {}).get(soc_col, {}).get("v")
+    if raw is None:
+        return None
+    # API returns SOC as a fraction (0.0-1.0); convert to percent.
+    return round(float(raw) * 100, 1)
+
+
 class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
     """Polls the Moixa GridShare API on a fixed interval."""
 
     site_id: str
+    battery_device_id: str
 
     def __init__(self, hass: HomeAssistant, username: str, password: str) -> None:
         self._username = username
@@ -84,17 +102,25 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
             raise UpdateFailed(f"Moixa setup failed: {err}") from err
 
     def _login_and_discover(self) -> None:
-        """Synchronous: authenticate, create client, resolve site ID."""
+        """Synchronous: authenticate, create client, resolve site and battery device IDs."""
         tokens = MoixaCognitoAuth(self._username, self._password).login()
-        # MoixaClient.__init__ calls boto3 to exchange tokens for AWS creds.
         client = MoixaClient(tokens)
         site_users = client.get_site_users()
         if not site_users:
             raise MoixaError("No sites found for this account")
         entry = site_users[0]
         self.site_id = entry["siteId"]
-        # Pre-populate the client's internal cache so get_current_battery_level()
-        # skips the redundant get_site_users() call it would otherwise make.
+        battery_id = next(
+            (
+                d["id"]
+                for d in entry.get("devices", [])
+                if d.get("deviceType") == "VirtualMoixaVictronSmartBattery"
+            ),
+            None,
+        )
+        if battery_id is None:
+            raise MoixaError("No battery device found for this account")
+        self.battery_device_id = battery_id
         client.known_site_users = site_users
         self._client = client
 
@@ -120,11 +146,20 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
             raise UpdateFailed(f"Error communicating with Moixa API: {err}") from err
 
     def _fetch(self) -> MoixaData:
-        """Synchronous: call both API endpoints and combine results."""
+        """Synchronous: call API endpoints and combine results."""
         assert self._client is not None
         readings = self._client.get_core_readings(self.site_id)
         parsed = _parse_core_readings(readings)
-        soc_raw = self._client.get_current_battery_level()
-        # API returns SOC as a fraction (0.0-1.0); convert to percent (0-100).
-        soc = round(soc_raw * 100, 1) if soc_raw >= 0 else None
-        return MoixaData(battery_soc=soc, **parsed)
+        status = self._client.get_device_status(self.battery_device_id)
+        soc = _parse_soc(status)
+        mode_resp = self._client.get_device_current_operation_mode(self.battery_device_id)
+        operation_mode = mode_resp.get("mode") if isinstance(mode_resp, dict) else None
+        return MoixaData(battery_soc=soc, operation_mode=operation_mode, **parsed)
+
+    async def async_set_operation_mode(self, mode: str) -> None:
+        """Set the battery operation mode and refresh coordinator data."""
+        assert self._client is not None
+        await self.hass.async_add_executor_job(
+            self._client.set_device_operation_mode, self.battery_device_id, mode
+        )
+        await self.async_request_refresh()

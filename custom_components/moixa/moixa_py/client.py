@@ -74,14 +74,26 @@ class MoixaClient:
 
     def _get(self, *args: Any, **kwargs: Any) -> requests.Response:
         res = self.session.get(*args, **kwargs, auth=self._auth, timeout=30)
-        if res.status_code in (401, 403) and self._try_refresh():
+        if res.status_code == 401 and self._try_refresh():
             res = self.session.get(*args, **kwargs, auth=self._auth, timeout=30)
         return res
 
     def _post(self, *args: Any, **kwargs: Any) -> requests.Response:
         res = self.session.post(*args, **kwargs, auth=self._auth, timeout=30)
-        if res.status_code in (401, 403) and self._try_refresh():
+        if res.status_code == 401 and self._try_refresh():
             res = self.session.post(*args, **kwargs, auth=self._auth, timeout=30)
+        return res
+
+    def _patch(self, *args: Any, **kwargs: Any) -> requests.Response:
+        res = self.session.patch(*args, **kwargs, auth=self._auth, timeout=30)
+        if res.status_code == 401 and self._try_refresh():
+            res = self.session.patch(*args, **kwargs, auth=self._auth, timeout=30)
+        return res
+
+    def _put(self, *args: Any, **kwargs: Any) -> requests.Response:
+        res = self.session.put(*args, **kwargs, auth=self._auth, timeout=30)
+        if res.status_code == 401 and self._try_refresh():
+            res = self.session.put(*args, **kwargs, auth=self._auth, timeout=30)
         return res
 
     def get_site_users(self):
@@ -89,30 +101,177 @@ class MoixaClient:
         response.raise_for_status()
         return response.json()
 
-    def get_current_user_sites(self):
-        response = self._get(f'{self.api_url}/users/current/sites')
+    def get_user_metadata(self):
+        response = self._get(f'{self.api_url}/users/current/metadata')
         response.raise_for_status()
         return response.json()
 
-    def get_core_readings(self, site_id: str):
+    def get_core_readings(self, site_id: str, time_range: str = 'latest',
+                          roller: str = '', utc_offset: int = 60):
+        params = {
+            'roller': roller,
+            'utcOffset': utc_offset,
+            'extendedBounds': 'true',
+            'timeRange': time_range,
+            'select': (
+                'core/consumption/in/AC/W,core/grid/in/AC/W,core/grid/out/AC/W,'
+                'core/production/out/AC/W,core/storage/in/AC/W,core/storage/out/AC/W,'
+                'derived/pc-delta/neg/W,derived/pc-delta/pos/W,'
+                'derived/pcs-delta/neg/W,derived/pcs-delta/pos/W'
+            ),
+        }
         response = self._get(
-            f'{self.api_url}/users/current/sites/{site_id}/coreReadingsV3'
-            '?roller=&utcOffset=60&extendedBounds=true&timeRange=latest'
-            '&select=core%2Fconsumption%2Fin%2FAC%2FW%2Ccore%2Fgrid%2Fin%2FAC%2FW'
-            '%2Ccore%2Fgrid%2Fout%2FAC%2FW%2Ccore%2Fproduction%2Fout%2FAC%2FW'
-            '%2Ccore%2Fstorage%2Fin%2FAC%2FW%2Ccore%2Fstorage%2Fout%2FAC%2FW'
-            '%2Cderived%2Fpc-delta%2Fneg%2FW%2Cderived%2Fpc-delta%2Fpos%2FW'
-            '%2Cderived%2Fpcs-delta%2Fneg%2FW%2Cderived%2Fpcs-delta%2Fpos%2FW'
+            f'{self.api_url}/users/current/sites/{site_id}/coreReadingsV3',
+            params=params,
         )
         response.raise_for_status()
         return response.json()
 
-    def get_device_status(self, device_id: str):
+    def get_device(self, device_id: str):
+        response = self._get(f'{self.api_url}/users/current/devices/{device_id}')
+        response.raise_for_status()
+        return response.json()
+
+    def get_device_status(self, device_id: str, time_range: str = 'latest'):
+        channels = ['consumption/AC/W', 'grid/AC/W', 'production/AC/W',
+                    'storage/AC/W', 'storage/SOC']
+        params = [
+            ('roller', '5m-avg'),
+            *[('channels', c) for c in channels],
+            ('timeRange', time_range),
+            ('utcOffset', 0),
+            ('extendedBounds', 'true'),
+            ('select', ','.join(channels)),
+        ]
         response = self._get(
-            f'{self.api_url}/users/current/devices/{device_id}/specificReadings'
-            '?channels=storage%2FSOC&timeRange=latest&roller=5m-avg'
-            '&extendedBounds=false&utcOffset=60'
-            '&select=storage%2FAC%2FW%2Cstorage%2FSOC'
+            f'{self.api_url}/users/current/devices/{device_id}/specificReadings',
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_device_current_operation_mode(self, device_id: str):
+        response = self._get(
+            f'{self.api_url}/users/current/devices/{device_id}/currentOperationMode'
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_device_operation_schedule(self, device_id: str):
+        response = self._get(
+            f'{self.api_url}/users/current/devices/{device_id}/operationModes/schedule'
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def set_device_operation_mode(self, device_id: str, mode: str) -> None:
+        """Switch mode: 'smart', 'schedule', or 'simple'."""
+        response = self._patch(
+            f'{self.api_url}/users/current/devices/{device_id}/currentOperationMode',
+            json={'mode': mode},
+        )
+        response.raise_for_status()
+
+    def set_device_operation_schedule(self, device_id: str, plan: dict) -> None:
+        """Replace the weekly schedule plan. Pass the full plan dict as returned by get_device_operation_schedule()."""
+        response = self._put(
+            f'{self.api_url}/users/current/devices/{device_id}/operationModes/schedule',
+            json={'plan': plan},
+        )
+        response.raise_for_status()
+
+    # --- Schedule slot helpers (all read-modify-write via set_device_operation_schedule) ---
+
+    @staticmethod
+    def _build_intent(kind: str, soc_min: float, soc_max: float,
+                      power_watts: float = None,
+                      power_watts_min: float = None,
+                      power_watts_max: float = None) -> dict:
+        if kind not in ('balance', 'charge/discharge', 'idle'):
+            raise MoixaError(f"Unknown intent kind {kind!r}. Use 'balance', 'charge/discharge', or 'idle'.")
+        intent: dict = {'kind': kind, 'socMin': soc_min, 'socMax': soc_max}
+        if kind == 'charge/discharge':
+            if power_watts is None:
+                raise MoixaError("power_watts is required for 'charge/discharge' intent")
+            intent['powerWatts'] = power_watts
+        elif kind == 'balance':
+            intent['powerWattsMin'] = power_watts_min if power_watts_min is not None else -20
+            intent['powerWattsMax'] = power_watts_max if power_watts_max is not None else 20
+        return intent
+
+    def add_schedule_intent(self, device_id: str, kind: str, duration_minutes: int,
+                             position: int = -1, soc_min: float = 0.1, soc_max: float = 1.0,
+                             power_watts: float = None,
+                             power_watts_min: float = None,
+                             power_watts_max: float = None) -> None:
+        """Insert a new intent slot. Time is stolen from the neighbouring slot.
+        position=-1 appends to the end. Intent kinds: 'balance', 'charge/discharge', 'idle'."""
+        schedule = self.get_device_operation_schedule(device_id)
+        intents = schedule['plan']['intents']
+        if position == -1:
+            position = len(intents)
+        steal_idx = (position - 1) if position > 0 else 0
+        if intents[steal_idx]['durationMinutes'] <= duration_minutes:
+            raise MoixaError(
+                f'Slot {steal_idx} only has {intents[steal_idx]["durationMinutes"]} min; '
+                f'cannot steal {duration_minutes} min'
+            )
+        intents[steal_idx]['durationMinutes'] -= duration_minutes
+        intents.insert(position, {
+            'intent': self._build_intent(kind, soc_min, soc_max, power_watts, power_watts_min, power_watts_max),
+            'durationMinutes': duration_minutes,
+        })
+        self.set_device_operation_schedule(device_id, schedule['plan'])
+
+    def edit_schedule_intent(self, device_id: str, index: int,
+                              kind: str = None, duration_minutes: int = None,
+                              soc_min: float = None, soc_max: float = None,
+                              power_watts: float = None,
+                              power_watts_min: float = None,
+                              power_watts_max: float = None) -> None:
+        """Edit fields of an existing intent slot. Only supplied arguments are changed.
+        If duration_minutes changes, the difference is absorbed by the neighbouring slot."""
+        schedule = self.get_device_operation_schedule(device_id)
+        intents = schedule['plan']['intents']
+        slot = intents[index]
+        if duration_minutes is not None and duration_minutes != slot['durationMinutes']:
+            neighbour = (index - 1) if index > 0 else index + 1
+            diff = duration_minutes - slot['durationMinutes']
+            if intents[neighbour]['durationMinutes'] - diff < 1:
+                raise MoixaError(f'Slot {neighbour} cannot absorb a {diff:+d} min duration change')
+            intents[neighbour]['durationMinutes'] -= diff
+            slot['durationMinutes'] = duration_minutes
+        intent = slot['intent']
+        for attr, val in [('kind', kind), ('socMin', soc_min), ('socMax', soc_max),
+                          ('powerWatts', power_watts), ('powerWattsMin', power_watts_min),
+                          ('powerWattsMax', power_watts_max)]:
+            if val is not None:
+                intent[attr] = val
+        self.set_device_operation_schedule(device_id, schedule['plan'])
+
+    def delete_schedule_intent(self, device_id: str, index: int) -> None:
+        """Remove an intent slot. Its duration is given to the neighbouring slot."""
+        schedule = self.get_device_operation_schedule(device_id)
+        intents = schedule['plan']['intents']
+        if len(intents) <= 1:
+            raise MoixaError('Cannot delete the only schedule slot')
+        removed = intents.pop(index)
+        neighbour = (index - 1) if index > 0 else 0
+        intents[neighbour]['durationMinutes'] += removed['durationMinutes']
+        self.set_device_operation_schedule(device_id, schedule['plan'])
+
+    def get_device_intent_time_series(self, device_id: str, interval_start: str, interval_end: str):
+        response = self._get(
+            f'{self.api_url}/users/current/devices/{device_id}/intentTimeSeries',
+            params={'interval': f'{interval_start},{interval_end}'},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_device_tariff_time_series(self, device_id: str, interval_start: str, interval_end: str):
+        response = self._get(
+            f'{self.api_url}/users/current/devices/{device_id}/tariffTimeSeries',
+            params={'interval': f'{interval_start},{interval_end}'},
         )
         response.raise_for_status()
         return response.json()
@@ -128,4 +287,12 @@ class MoixaClient:
         if not battery_device_id:
             raise MoixaError('No battery device found')
         status_data = self.get_device_status(battery_device_id)
+        for col_data in status_data.get('data', [{}])[0].get('f', {}).values():
+            pass
+        soc_col = next(
+            (k for k, v in status_data['header']['columns'].items() if v['id'] == 'storage/SOC'),
+            None,
+        ) if status_data.get('header') else None
+        if soc_col:
+            return float(status_data['data'][0]['f'][soc_col]['v'])
         return float(status_data.get('data', [{}])[0].get('f', {}).get('1', {}).get('v', -1))

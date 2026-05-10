@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from custom_components.moixa.const import DOMAIN
 from custom_components.moixa.coordinator import MoixaCoordinator
 
-from .const import MOCK_CONFIG, MOCK_MOIXA_DATA, MOCK_SITE_ID
+from .const import MOCK_BATTERY_DEVICE_ID, MOCK_CONFIG, MOCK_MOIXA_DATA, MOCK_SITE_ID
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +31,7 @@ def mock_setup_entry() -> Generator[MagicMock]:
 def _fake_login_and_discover(coordinator_self: MoixaCoordinator) -> None:
     """Synchronous stub that populates coordinator attributes without hitting the API."""
     coordinator_self.site_id = MOCK_SITE_ID
+    coordinator_self.battery_device_id = MOCK_BATTERY_DEVICE_ID
     coordinator_self._client = MagicMock()
 
 

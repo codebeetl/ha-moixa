@@ -65,6 +65,20 @@ MOCK_CORE_READINGS = {
     ],
 }
 
+MOCK_DEVICE_STATUS = {
+    "docType": "jts",
+    "version": "v1",
+    "header": {
+        "columns": {
+            "0": {"id": "storage/SOC", "name": "storage/SOC"},
+            "1": {"id": "storage/AC/W", "name": "storage/AC/W"},
+        }
+    },
+    "data": [{"ts": "2026-05-10T12:09:47.848Z", "f": {"0": {"v": 0.85}, "1": {"v": 1984.1}}}],
+}
+
+MOCK_OPERATION_MODE = {"mode": "smart"}
+
 MOCK_MOIXA_DATA = MoixaData(
     battery_soc=85.0,
     consumption_w=489.6,
@@ -73,4 +87,5 @@ MOCK_MOIXA_DATA = MoixaData(
     solar_w=722.0,
     battery_charging_w=1984.1,
     battery_discharging_w=0.0,
+    operation_mode="smart",
 )
