@@ -118,5 +118,6 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
         readings = self._client.get_core_readings(self.site_id)
         parsed = _parse_core_readings(readings)
         soc_raw = self._client.get_current_battery_level()
-        soc = soc_raw if soc_raw >= 0 else None
+        # API returns SOC as a fraction (0.0-1.0); convert to percent (0-100).
+        soc = round(soc_raw * 100, 1) if soc_raw >= 0 else None
         return MoixaData(battery_soc=soc, **parsed)
