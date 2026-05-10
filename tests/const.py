@@ -79,6 +79,12 @@ MOCK_DEVICE_STATUS = {
 
 MOCK_OPERATION_MODE = {"mode": "smart"}
 
+MOCK_FORECASTS = [
+    {"ts": "2026-05-10T19:30:00.000Z", "consumption_W": 936.1, "production_W": 0.0},
+    {"ts": "2026-05-10T20:00:00.000Z", "consumption_W": 899.3, "production_W": 0.0},
+    {"ts": "2026-05-11T09:00:00.000Z", "consumption_W": 454.3, "production_W": 858.0},
+]
+
 MOCK_MOIXA_DATA = MoixaData(
     battery_soc=85.0,
     consumption_w=489.6,
@@ -88,4 +94,5 @@ MOCK_MOIXA_DATA = MoixaData(
     battery_charging_w=1984.1,
     battery_discharging_w=0.0,
     operation_mode="smart",
+    forecasts=MOCK_FORECASTS,
 )

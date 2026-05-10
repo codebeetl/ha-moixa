@@ -260,6 +260,47 @@ class MoixaClient:
         intents[neighbour]['durationMinutes'] += removed['durationMinutes']
         self.set_device_operation_schedule(device_id, schedule['plan'])
 
+    @staticmethod
+    def parse_jts(data: dict) -> list:
+        """Flatten a JTS time series response into a list of dicts.
+
+        Each dict has a 'ts' key (ISO 8601 timestamp) and one key per column
+        named after the column's 'name' field. Missing values are None.
+
+        Works with any JTS response: get_site_forecasts, get_core_readings,
+        get_device_status, etc.
+
+        Example:
+            forecasts = client.get_site_forecasts(site_id, start, end)
+            for row in client.parse_jts(forecasts):
+                print(row['ts'], row['consumption_W'], row['production_W'])
+        """
+        cols = {k: v['name'] for k, v in data['header']['columns'].items()}
+        result = []
+        for record in data['data']:
+            row = {'ts': record['ts']}
+            for col_id, name in cols.items():
+                row[name] = record.get('f', {}).get(col_id, {}).get('v')
+            result.append(row)
+        return result
+
+    def get_site_forecasts(self, site_id: str, time_range_start: str, time_range_end: str,
+                           select: str = 'consumption_W,production_W'):
+        """Predicted consumption and solar production for a site over a time range.
+        time_range_start/end are ISO 8601 strings, e.g. '2026-05-10T00:00:00.000Z'."""
+        response = self._get(
+            f'{self.api_url}/users/current/sites/{site_id}/forecasts',
+            params={'select': select, 'timeRange': f'{time_range_start},{time_range_end}'},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_flex_dispatches(self):
+        """Flex dispatch events for the current user."""
+        response = self._get(f'{self.api_url}/users/current/flexDispatches')
+        response.raise_for_status()
+        return response.json()
+
     def get_device_intent_time_series(self, device_id: str, interval_start: str, interval_end: str):
         response = self._get(
             f'{self.api_url}/users/current/devices/{device_id}/intentTimeSeries',

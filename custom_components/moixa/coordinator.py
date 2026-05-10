@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 
 from requests import HTTPError
 
@@ -30,6 +31,8 @@ class MoixaData:
     battery_charging_w: float | None
     battery_discharging_w: float | None
     operation_mode: str | None
+    # 24-hour forecast: list of {ts, consumption_W, production_W} dicts, 30-min slots
+    forecasts: list[dict] | None = field(default=None)
 
 
 def _parse_core_readings(readings: dict) -> dict[str, float | None]:
@@ -154,7 +157,18 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
         soc = _parse_soc(status)
         mode_resp = self._client.get_device_current_operation_mode(self.battery_device_id)
         operation_mode = mode_resp.get("mode") if isinstance(mode_resp, dict) else None
-        return MoixaData(battery_soc=soc, operation_mode=operation_mode, **parsed)
+        forecasts: list[dict] | None = None
+        try:
+            now = datetime.now(timezone.utc)
+            forecasts_raw = self._client.get_site_forecasts(
+                self.site_id,
+                now.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                (now + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            )
+            forecasts = MoixaClient.parse_jts(forecasts_raw)
+        except Exception:
+            _LOGGER.debug("Forecast fetch failed", exc_info=True)
+        return MoixaData(battery_soc=soc, operation_mode=operation_mode, forecasts=forecasts, **parsed)
 
     async def async_set_operation_mode(self, mode: str) -> None:
         """Set the battery operation mode and refresh coordinator data."""

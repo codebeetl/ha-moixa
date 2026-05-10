@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -20,6 +21,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import MoixaCoordinator, MoixaData
+
+
+def _device_info(coordinator: MoixaCoordinator) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, coordinator.site_id)},
+        name="Moixa GridShare",
+        manufacturer="Moixa",
+        model="Smart Battery",
+    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -96,6 +106,35 @@ _SENSOR_DESCRIPTIONS: tuple[MoixaSensorEntityDescription, ...] = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class MoixaForecastSensorDescription(SensorEntityDescription):
+    """Sensor description for 24-hour forecast sensors."""
+
+    value_key: str  # key in the JTS row dict: "consumption_W" or "production_W"
+
+
+_FORECAST_DESCRIPTIONS: tuple[MoixaForecastSensorDescription, ...] = (
+    MoixaForecastSensorDescription(
+        key="forecast_consumption",
+        translation_key="forecast_consumption",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+        value_key="consumption_W",
+    ),
+    MoixaForecastSensorDescription(
+        key="forecast_solar",
+        translation_key="forecast_solar",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+        value_key="production_W",
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -103,9 +142,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up Moixa sensors from a config entry."""
     coordinator: MoixaCoordinator = entry.runtime_data
-    async_add_entities(
+    entities: list[SensorEntity] = [
         MoixaSensor(coordinator, description) for description in _SENSOR_DESCRIPTIONS
-    )
+    ]
+    entities += [
+        MoixaForecastSensor(coordinator, description)
+        for description in _FORECAST_DESCRIPTIONS
+    ]
+    async_add_entities(entities)
 
 
 class MoixaSensor(CoordinatorEntity[MoixaCoordinator], SensorEntity):
@@ -122,15 +166,52 @@ class MoixaSensor(CoordinatorEntity[MoixaCoordinator], SensorEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.site_id}_{description.key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, coordinator.site_id)},
-            name="Moixa GridShare",
-            manufacturer="Moixa",
-            model="Smart Battery",
-        )
+        self._attr_device_info = _device_info(coordinator)
 
     @property
     def native_value(self) -> float | None:
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)
+
+
+class MoixaForecastSensor(CoordinatorEntity[MoixaCoordinator], SensorEntity):
+    """Forecast sensor: state = next 30-min slot, attribute = full 24h series."""
+
+    _attr_has_entity_name = True
+    entity_description: MoixaForecastSensorDescription
+
+    def __init__(
+        self,
+        coordinator: MoixaCoordinator,
+        description: MoixaForecastSensorDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{coordinator.site_id}_{description.key}"
+        self._attr_device_info = _device_info(coordinator)
+
+    @property
+    def native_value(self) -> float | None:
+        forecasts = self._forecasts
+        if not forecasts:
+            return None
+        return forecasts[0].get(self.entity_description.value_key)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        forecasts = self._forecasts
+        if not forecasts:
+            return {}
+        return {
+            "forecast": [
+                {"ts": row["ts"], "W": row.get(self.entity_description.value_key)}
+                for row in forecasts
+            ]
+        }
+
+    @property
+    def _forecasts(self) -> list[dict] | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.forecasts

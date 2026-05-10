@@ -49,6 +49,12 @@
       },
       "battery_discharging": {
         "name": "Battery Discharging"
+      },
+      "forecast_consumption": {
+        "name": "Forecast Consumption"
+      },
+      "forecast_solar": {
+        "name": "Forecast Solar Production"
       }
     },
     "select": {
