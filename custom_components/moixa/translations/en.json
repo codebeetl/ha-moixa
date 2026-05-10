@@ -55,6 +55,14 @@
       },
       "forecast_solar": {
         "name": "Forecast Solar Production"
+      },
+      "current_intent": {
+        "name": "Current Intent",
+        "state": {
+          "balance": "Balancing",
+          "charge/discharge": "Charging / Discharging",
+          "idle": "Idle"
+        }
       }
     },
     "select": {

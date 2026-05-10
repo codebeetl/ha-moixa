@@ -79,6 +79,28 @@ MOCK_DEVICE_STATUS = {
 
 MOCK_OPERATION_MODE = {"mode": "smart"}
 
+MOCK_SCHEDULE = {
+    "periodDays": 7,
+    "id": "d54c00bc-c619-4953-b545-0eb3e166ff0e",
+    "intents": [
+        {"intent": {"kind": "balance", "socMin": 0.1, "socMax": 1.0, "powerWattsMin": -20, "powerWattsMax": 20}, "durationMinutes": 2099},
+        {"intent": {"kind": "charge/discharge", "socMin": 0.1, "socMax": 1.0, "powerWatts": 2000}, "durationMinutes": 2338},
+    ],
+}
+
+MOCK_INTENT_SERIES = [
+    {
+        "startTime": "2026-05-10T19:44:13.000Z",
+        "endTime": "2026-05-11T04:30:00.000Z",
+        "intent": {"kind": "balance", "socMin": 0.113, "socMax": 1.0, "lowerPowerBand": 0, "upperPowerBand": 1},
+    },
+    {
+        "startTime": "2026-05-11T04:30:00.000Z",
+        "endTime": "2026-05-11T05:00:00.000Z",
+        "intent": {"kind": "charge/discharge", "socMin": 0.113, "socMax": 0.216, "powerWatts": 2000},
+    },
+]
+
 MOCK_FORECASTS = [
     {"ts": "2026-05-10T19:30:00.000Z", "consumption_W": 936.1, "production_W": 0.0},
     {"ts": "2026-05-10T20:00:00.000Z", "consumption_W": 899.3, "production_W": 0.0},
@@ -95,4 +117,6 @@ MOCK_MOIXA_DATA = MoixaData(
     battery_discharging_w=0.0,
     operation_mode="smart",
     forecasts=MOCK_FORECASTS,
+    schedule=MOCK_SCHEDULE,
+    intent_series=MOCK_INTENT_SERIES,
 )

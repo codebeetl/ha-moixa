@@ -149,6 +149,7 @@ async def async_setup_entry(
         MoixaForecastSensor(coordinator, description)
         for description in _FORECAST_DESCRIPTIONS
     ]
+    entities.append(MoixaIntentSensor(coordinator))
     async_add_entities(entities)
 
 
@@ -215,3 +216,37 @@ class MoixaForecastSensor(CoordinatorEntity[MoixaCoordinator], SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.forecasts
+
+
+class MoixaIntentSensor(CoordinatorEntity[MoixaCoordinator], SensorEntity):
+    """Sensor showing the current battery intent (balance/charge/discharge/idle)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "current_intent"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["balance", "charge/discharge", "idle"]
+
+    def __init__(self, coordinator: MoixaCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.site_id}_current_intent"
+        self._attr_device_info = _device_info(coordinator)
+
+    @property
+    def native_value(self) -> str | None:
+        series = self._intent_series
+        if not series:
+            return None
+        return series[0].get("intent", {}).get("kind")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        series = self._intent_series
+        if not series:
+            return {}
+        return {"schedule": series}
+
+    @property
+    def _intent_series(self) -> list[dict] | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.intent_series

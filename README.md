@@ -22,12 +22,13 @@ Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) Gr
 | Battery Discharging | W | Power flowing out of the battery |
 | Forecast Consumption | W | Predicted home consumption for the next 30-min slot (next 24 h series in `forecast` attribute) |
 | Forecast Solar Production | W | Predicted solar output for the next 30-min slot (next 24 h series in `forecast` attribute) |
+| Current Intent | | What the battery is currently doing: **Balancing**, **Charging / Discharging**, or **Idle** (full 24 h intent schedule in `schedule` attribute) |
 
 ### Controls
 
 | Entity | Type | Description |
 |---|---|---|
-| Operation Mode | Select | Switch between **Smart**, **Schedule**, and **Simple** battery modes |
+| Operation Mode | Select | Switch between **Smart**, **Schedule**, and **Simple** battery modes (weekly schedule plan in `schedule` attribute) |
 
 All entities share a single **Moixa GridShare** device in Home Assistant.
 

@@ -33,6 +33,10 @@ class MoixaData:
     operation_mode: str | None
     # 24-hour forecast: list of {ts, consumption_W, production_W} dicts, 30-min slots
     forecasts: list[dict] | None = field(default=None)
+    # Weekly schedule plan from get_device_operation_schedule
+    schedule: dict | None = field(default=None)
+    # 24-hour intent time series: list of {startTime, endTime, intent} dicts
+    intent_series: list[dict] | None = field(default=None)
 
 
 def _parse_core_readings(readings: dict) -> dict[str, float | None]:
@@ -157,18 +161,39 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
         soc = _parse_soc(status)
         mode_resp = self._client.get_device_current_operation_mode(self.battery_device_id)
         operation_mode = mode_resp.get("mode") if isinstance(mode_resp, dict) else None
+        now = datetime.now(timezone.utc)
+        start = now.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        end = (now + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
         forecasts: list[dict] | None = None
         try:
-            now = datetime.now(timezone.utc)
-            forecasts_raw = self._client.get_site_forecasts(
-                self.site_id,
-                now.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                (now + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            forecasts = MoixaClient.parse_jts(
+                self._client.get_site_forecasts(self.site_id, start, end)
             )
-            forecasts = MoixaClient.parse_jts(forecasts_raw)
         except Exception:
             _LOGGER.debug("Forecast fetch failed", exc_info=True)
-        return MoixaData(battery_soc=soc, operation_mode=operation_mode, forecasts=forecasts, **parsed)
+
+        schedule: dict | None = None
+        try:
+            schedule = self._client.get_device_operation_schedule(self.battery_device_id).get("plan")
+        except Exception:
+            _LOGGER.debug("Schedule fetch failed", exc_info=True)
+
+        intent_series: list[dict] | None = None
+        try:
+            resp = self._client.get_device_intent_time_series(self.battery_device_id, start, end)
+            intent_series = resp.get("timeSeries")
+        except Exception:
+            _LOGGER.debug("Intent time series fetch failed", exc_info=True)
+
+        return MoixaData(
+            battery_soc=soc,
+            operation_mode=operation_mode,
+            forecasts=forecasts,
+            schedule=schedule,
+            intent_series=intent_series,
+            **parsed,
+        )
 
     async def async_set_operation_mode(self, mode: str) -> None:
         """Set the battery operation mode and refresh coordinator data."""
