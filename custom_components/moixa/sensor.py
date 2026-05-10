@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -13,11 +14,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfPower
-from homeassistant.core import HomeAssistant
+from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfPower
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import MoixaCoordinator, MoixaData
@@ -113,6 +116,55 @@ class MoixaForecastSensorDescription(SensorEntityDescription):
     value_key: str  # key in the JTS row dict: "consumption_W" or "production_W"
 
 
+_ENERGY_DESCRIPTIONS: tuple[MoixaSensorEntityDescription, ...] = (
+    MoixaSensorEntityDescription(
+        key="solar_energy",
+        translation_key="solar_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.solar_w,
+    ),
+    MoixaSensorEntityDescription(
+        key="grid_import_energy",
+        translation_key="grid_import_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.grid_import_w,
+    ),
+    MoixaSensorEntityDescription(
+        key="grid_export_energy",
+        translation_key="grid_export_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.grid_export_w,
+    ),
+    MoixaSensorEntityDescription(
+        key="battery_charging_energy",
+        translation_key="battery_charging_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.battery_charging_w,
+    ),
+    MoixaSensorEntityDescription(
+        key="battery_discharging_energy",
+        translation_key="battery_discharging_energy",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.battery_discharging_w,
+    ),
+)
+
+
 _FORECAST_DESCRIPTIONS: tuple[MoixaForecastSensorDescription, ...] = (
     MoixaForecastSensorDescription(
         key="forecast_consumption",
@@ -150,6 +202,9 @@ async def async_setup_entry(
         for description in _FORECAST_DESCRIPTIONS
     ]
     entities.append(MoixaIntentSensor(coordinator))
+    entities += [
+        MoixaEnergySensor(coordinator, description) for description in _ENERGY_DESCRIPTIONS
+    ]
     async_add_entities(entities)
 
 
@@ -250,3 +305,69 @@ class MoixaIntentSensor(CoordinatorEntity[MoixaCoordinator], SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.intent_series
+
+
+class MoixaEnergySensor(CoordinatorEntity[MoixaCoordinator], SensorEntity, RestoreEntity):
+    """Cumulative energy sensor that integrates watts over time between coordinator polls.
+
+    Uses trapezoidal approximation. State persists across restarts via RestoreEntity.
+    Resets the elapsed-time baseline on coordinator failure to avoid over-accumulation
+    after an outage.
+    """
+
+    _attr_has_entity_name = True
+    entity_description: MoixaSensorEntityDescription
+
+    def __init__(
+        self,
+        coordinator: MoixaCoordinator,
+        description: MoixaSensorEntityDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{coordinator.site_id}_{description.key}"
+        self._attr_device_info = _device_info(coordinator)
+        self._accumulated_kwh: float = 0.0
+        self._attr_native_value = 0.0
+        self._last_update: datetime | None = None
+        self._last_watts: float | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # Prime the elapsed-time baseline from current coordinator data so the
+        # first real coordinator update accumulates correctly instead of being skipped.
+        if self.coordinator.data is not None:
+            current_watts = self.entity_description.value_fn(self.coordinator.data)
+            if current_watts is not None:
+                self._last_watts = current_watts
+                self._last_update = dt_util.utcnow()
+        # Restore accumulated total from before the last HA restart.
+        if (last_state := await self.async_get_last_state()) is not None:
+            try:
+                self._accumulated_kwh = float(last_state.state)
+                self._attr_native_value = round(self._accumulated_kwh, 4)
+                self.async_write_ha_state()
+            except (ValueError, TypeError):
+                pass
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self.coordinator.last_update_success and self.coordinator.data is not None:
+            current_watts = self.entity_description.value_fn(self.coordinator.data)
+            now = dt_util.utcnow()
+            if (
+                self._last_update is not None
+                and self._last_watts is not None
+                and current_watts is not None
+            ):
+                elapsed_hours = (now - self._last_update).total_seconds() / 3600
+                avg_watts = (self._last_watts + current_watts) / 2
+                self._accumulated_kwh += max(0.0, avg_watts * elapsed_hours / 1000)
+            if current_watts is not None:
+                self._last_watts = current_watts
+                self._last_update = now
+            self._attr_native_value = round(self._accumulated_kwh, 4)
+        else:
+            # Reset baseline so the next successful poll doesn't count the outage gap.
+            self._last_update = None
+        self.async_write_ha_state()

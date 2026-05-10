@@ -63,6 +63,21 @@
           "charge/discharge": "Charging / Discharging",
           "idle": "Idle"
         }
+      },
+      "solar_energy": {
+        "name": "Solar Production Energy"
+      },
+      "grid_import_energy": {
+        "name": "Grid Import Energy"
+      },
+      "grid_export_energy": {
+        "name": "Grid Export Energy"
+      },
+      "battery_charging_energy": {
+        "name": "Battery Charging Energy"
+      },
+      "battery_discharging_energy": {
+        "name": "Battery Discharging Energy"
       }
     },
     "select": {

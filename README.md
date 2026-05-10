@@ -23,6 +23,11 @@ Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) Gr
 | Forecast Consumption | W | Predicted home consumption for the next 30-min slot (next 24 h series in `forecast` attribute) |
 | Forecast Solar Production | W | Predicted solar output for the next 30-min slot (next 24 h series in `forecast` attribute) |
 | Current Intent | | What the battery is currently doing: **Balancing**, **Charging / Discharging**, or **Idle** (full 24 h intent schedule in `schedule` attribute) |
+| Solar Production Energy | kWh | Cumulative solar energy generated (resets at 0 on fresh install; persists across HA restarts) |
+| Grid Import Energy | kWh | Cumulative energy drawn from the grid |
+| Grid Export Energy | kWh | Cumulative energy exported to the grid |
+| Battery Charging Energy | kWh | Cumulative energy charged into the battery |
+| Battery Discharging Energy | kWh | Cumulative energy discharged from the battery |
 
 ### Controls
 
@@ -236,7 +241,8 @@ custom_components/moixa/
     diagnostics.py       # diagnostics support
     manifest.json        # HA / HACS metadata
     select.py            # operation mode select entity
-    sensor.py            # 7 sensor entities
+    sensor.py            # power sensors, forecast sensors, intent sensor, energy sensors
+    services.yaml        # service UI descriptions
     translations/
         en.json          # UI strings
     moixa_py/            # bundled GridShare API client (synced from codebeetl/moixa-api)
@@ -256,7 +262,8 @@ tests/
 
 - **Authentication**: Moixa uses AWS Cognito SRP for login and SigV4-signed requests. All auth is handled by the bundled `moixa_py` library, which also refreshes tokens automatically on 401 responses. The coordinator additionally performs a full re-login on 403 responses (AWS identity credentials expire after ~1 hour).
 - **Executor wrapping**: The `moixa_py` library is fully synchronous (uses `requests` and `boto3`). Every API call runs in HA's thread-pool executor via `async_add_executor_job` to avoid blocking the event loop.
-- **Poll interval**: 5 minutes, 3 API calls per cycle (core readings, device status, operation mode). The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
+- **Poll interval**: 5 minutes, 6 API calls per cycle (core readings, device status, operation mode, forecasts, schedule, intent time series). The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
+- **Energy sensors**: The five `*_energy` sensors accumulate kWh using a trapezoidal approximation between polls. State persists across HA restarts via `RestoreEntity`. After a coordinator failure, the elapsed-time baseline is reset so the recovery poll does not over-count the outage gap. All five sensors are immediately available in the Energy Dashboard source picker - no manual helper setup required.
 - **Operation mode**: The GridShare platform manages a nightly AI-computed schedule (`smart` mode). Switching to `simple` or `schedule` hands control back to fixed rules or a user-defined schedule.
 
 ---
