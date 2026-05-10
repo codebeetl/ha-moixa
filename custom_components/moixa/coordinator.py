@@ -106,8 +106,15 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
         except MoixaAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except HTTPError as err:
-            if err.response is not None and err.response.status_code == 401:
-                raise ConfigEntryAuthFailed("Session expired, please re-authenticate") from err
+            if err.response is not None and err.response.status_code in (401, 403):
+                _LOGGER.debug("Got %s, attempting full re-login", err.response.status_code)
+                try:
+                    await self.hass.async_add_executor_job(self._login_and_discover)
+                    return await self.hass.async_add_executor_job(self._fetch)
+                except MoixaAuthError as reauth_err:
+                    raise ConfigEntryAuthFailed(str(reauth_err)) from reauth_err
+                except Exception as reauth_err:
+                    raise UpdateFailed(f"Re-login failed: {reauth_err}") from reauth_err
             raise UpdateFailed(f"HTTP error from Moixa API: {err}") from err
         except Exception as err:
             raise UpdateFailed(f"Error communicating with Moixa API: {err}") from err
