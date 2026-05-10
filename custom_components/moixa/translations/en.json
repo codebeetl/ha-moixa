@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Moixa GridShare",
+        "description": "Enter your Moixa / GridShare account credentials.",
+        "data": {
+          "username": "Email address",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Moixa",
+        "description": "The session for **{username}** has expired. Please re-enter your password.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Moixa API. Check your network and try again.",
+      "invalid_auth": "Invalid email address or password.",
+      "unknown": "An unexpected error occurred. Check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "This Moixa account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Battery State of Charge"
+      },
+      "home_consumption": {
+        "name": "Home Consumption"
+      },
+      "grid_import": {
+        "name": "Grid Import"
+      },
+      "grid_export": {
+        "name": "Grid Export"
+      },
+      "solar_production": {
+        "name": "Solar Production"
+      },
+      "battery_charging": {
+        "name": "Battery Charging"
+      },
+      "battery_discharging": {
+        "name": "Battery Discharging"
+      }
+    }
+  }
+}
