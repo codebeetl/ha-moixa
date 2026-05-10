@@ -9,4 +9,4 @@ from homeassistant.const import Platform
 DOMAIN = "moixa"
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-SCAN_INTERVAL = timedelta(seconds=30)
+SCAN_INTERVAL = timedelta(minutes=5)

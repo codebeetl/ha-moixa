@@ -147,7 +147,7 @@ tests/
 
 - **Authentication**: Moixa uses AWS Cognito SRP for login and SigV4-signed requests. All auth is handled by the bundled `moixa_py` library, which also refreshes tokens automatically on 401 responses.
 - **Executor wrapping**: The `moixa_py` library is fully synchronous (uses `requests` and `boto3`). Every API call runs in HA's thread-pool executor via `async_add_executor_job` to avoid blocking the event loop.
-- **Poll interval**: 30 seconds, matching the granularity of the GridShare API's latest-reading endpoint.
+- **Poll interval**: 5 minutes. The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
 
 ---
 
