@@ -119,6 +119,70 @@ action:
 
 ---
 
+## Services (Actions)
+
+Three services are registered under the `moixa` domain and are available in **Developer Tools -> Actions** and in automations.
+
+### `moixa.set_operation_mode`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `mode` | `smart` \| `schedule` \| `simple` | Target operation mode |
+
+### `moixa.add_schedule_intent`
+
+Inserts a slot into the weekly schedule. The slot's duration is borrowed from the neighbouring slot.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `kind` *(required)* | | `balance`, `charge/discharge`, or `idle` |
+| `duration_minutes` *(required)* | | Length of the slot in minutes |
+| `position` | `-1` (end) | Index to insert before (`-1` = append) |
+| `soc_min` | `0.1` | Minimum SOC during this slot (fraction) |
+| `soc_max` | `1.0` | Target SOC ceiling (fraction) |
+| `power_watts` | | Required for `charge/discharge` kind |
+
+Slot indices can be read from the `schedule` attribute of `select.moixa_gridshare_operation_mode`.
+
+### `moixa.remove_schedule_slot`
+
+| Parameter | Description |
+|---|---|
+| `index` *(required)* | Index of the slot to remove (duration transferred to neighbour) |
+
+### Example: free-energy charge window
+
+Add a forced charge slot during an off-tariff window, switch to schedule mode for the duration, then return to smart mode:
+
+```yaml
+automation:
+  - alias: "Free energy: start forced charge"
+    trigger:
+      - platform: time
+        at: "00:30:00"
+    action:
+      - service: moixa.add_schedule_intent
+        data:
+          kind: "charge/discharge"
+          duration_minutes: 90
+          power_watts: 2000
+          soc_max: 1.0
+      - service: moixa.set_operation_mode
+        data:
+          mode: schedule
+
+  - alias: "Free energy: resume smart mode"
+    trigger:
+      - platform: time
+        at: "02:00:00"
+    action:
+      - service: moixa.set_operation_mode
+        data:
+          mode: smart
+```
+
+---
+
 ## Diagnostics
 
 The integration supports Home Assistant's built-in diagnostics. Go to **Settings -> Devices & services -> Moixa -> Download diagnostics** to get a redacted snapshot of the latest sensor data and config entry (credentials are stripped automatically).

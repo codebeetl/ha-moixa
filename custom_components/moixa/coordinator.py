@@ -202,3 +202,35 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
             self._client.set_device_operation_mode, self.battery_device_id, mode
         )
         await self.async_request_refresh()
+
+    async def async_add_schedule_intent(
+        self,
+        kind: str,
+        duration_minutes: int,
+        position: int = -1,
+        soc_min: float = 0.1,
+        soc_max: float = 1.0,
+        power_watts: float | None = None,
+    ) -> None:
+        """Insert a new intent slot into the weekly schedule."""
+        assert self._client is not None
+        await self.hass.async_add_executor_job(
+            lambda: self._client.add_schedule_intent(
+                self.battery_device_id,
+                kind,
+                duration_minutes,
+                position=position,
+                soc_min=soc_min,
+                soc_max=soc_max,
+                power_watts=power_watts,
+            )
+        )
+        await self.async_request_refresh()
+
+    async def async_remove_schedule_slot(self, index: int) -> None:
+        """Remove an intent slot from the weekly schedule by index."""
+        assert self._client is not None
+        await self.hass.async_add_executor_job(
+            self._client.delete_schedule_intent, self.battery_device_id, index
+        )
+        await self.async_request_refresh()

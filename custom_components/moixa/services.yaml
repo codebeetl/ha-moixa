@@ -1,0 +1,101 @@
+set_operation_mode:
+  name: Set Operation Mode
+  description: >
+    Switch the battery between Smart (AI-managed), Schedule (follows weekly plan),
+    and Simple modes.
+  fields:
+    mode:
+      name: Mode
+      required: true
+      selector:
+        select:
+          options:
+            - smart
+            - schedule
+            - simple
+
+add_schedule_intent:
+  name: Add Schedule Intent
+  description: >
+    Insert a new intent slot into the weekly schedule. The required duration is
+    borrowed from the neighbouring slot. Use kind "charge/discharge" for forced
+    charging during free-energy windows.
+  fields:
+    kind:
+      name: Kind
+      required: true
+      selector:
+        select:
+          options:
+            - balance
+            - "charge/discharge"
+            - idle
+    duration_minutes:
+      name: Duration (minutes)
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 10080
+          unit_of_measurement: min
+          mode: box
+    position:
+      name: Position
+      description: >
+        Index at which to insert the slot (-1 = append to end). Find current indices
+        in the schedule attribute of the Operation Mode entity.
+      required: false
+      default: -1
+      selector:
+        number:
+          min: -1
+          max: 100
+          mode: box
+    soc_min:
+      name: Minimum SOC
+      description: Minimum battery state of charge (0.0 - 1.0). Default 0.1.
+      required: false
+      default: 0.1
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.01
+    soc_max:
+      name: Maximum SOC target
+      description: Target battery state of charge (0.0 - 1.0). Default 1.0.
+      required: false
+      default: 1.0
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.01
+    power_watts:
+      name: Power (W)
+      description: >
+        Charge/discharge power in watts. Required when kind is
+        "charge/discharge".
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: W
+          mode: box
+
+remove_schedule_slot:
+  name: Remove Schedule Slot
+  description: >
+    Remove an intent slot from the weekly schedule by its index. The slot's
+    duration is transferred to the neighbouring slot. Find indices in the
+    schedule attribute of the Operation Mode entity.
+  fields:
+    index:
+      name: Index
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: box
