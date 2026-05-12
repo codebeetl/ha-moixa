@@ -1,0 +1,63 @@
+# Mode Buttons - switch between Smart, Schedule and Simple operation modes.
+# Requires custom:button-card (HACS > Frontend).
+# Add to your dashboard via Edit > Add Card > Manual.
+# The active mode is highlighted with the primary theme colour.
+
+type: horizontal-stack
+cards:
+  - type: custom:button-card
+    entity: select.moixa_gridshare_operation_mode
+    name: Smart
+    icon: mdi:brain
+    state:
+      - value: smart
+        styles:
+          card:
+            - background-color: var(--primary-color)
+          name:
+            - color: var(--text-primary-color)
+          icon:
+            - color: var(--text-primary-color)
+    tap_action:
+      action: call-service
+      service: moixa.set_operation_mode
+      service_data:
+        mode: smart
+
+  - type: custom:button-card
+    entity: select.moixa_gridshare_operation_mode
+    name: Schedule
+    icon: mdi:calendar-clock
+    state:
+      - value: schedule
+        styles:
+          card:
+            - background-color: var(--primary-color)
+          name:
+            - color: var(--text-primary-color)
+          icon:
+            - color: var(--text-primary-color)
+    tap_action:
+      action: call-service
+      service: moixa.set_operation_mode
+      service_data:
+        mode: schedule
+
+  - type: custom:button-card
+    entity: select.moixa_gridshare_operation_mode
+    name: Simple
+    icon: mdi:lightning-bolt
+    state:
+      - value: simple
+        styles:
+          card:
+            - background-color: var(--primary-color)
+          name:
+            - color: var(--text-primary-color)
+          icon:
+            - color: var(--text-primary-color)
+    tap_action:
+      action: call-service
+      service: moixa.set_operation_mode
+      service_data:
+        mode: simple

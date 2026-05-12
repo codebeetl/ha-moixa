@@ -1,0 +1,27 @@
+type: markdown
+title: Battery Plan
+content: >+
+  # Battery Plan{% set schedule =
+  state_attr('sensor.moixa_gridshare_current_intent', 'schedule') %} {% if
+  schedule %} {% for slot in schedule -%} {%- set start = slot.startTime |
+  as_datetime | as_local -%}
+
+  {%- set kind = slot.intent.kind %}
+
+  {% if loop.first %}**Now**{% else %}{{ start.strftime('%m/%d **%H:%M') }}**{%
+  endif %}: *{{
+
+  kind | title }}{% if kind == 'balance' %}, SoC {{ (slot.intent.socMin * 100) |
+  round |
+
+  int }}–{{ (slot.intent.socMax * 100) | round | int }}%{% elif 'powerWatts' in
+
+  slot.intent %} · {{ slot.intent.powerWatts | int }} W{% endif %}* {% endfor %}
+
+  {% else %}
+
+  No schedule data.
+
+  {% endif %}
+
+text_only: true

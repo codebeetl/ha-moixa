@@ -1,0 +1,44 @@
+# Solar Forecast Graph - 24h solar production and home consumption forecast as a chart.
+# Requires custom:apexcharts-card (HACS > Frontend).
+# Add to your dashboard via Edit > Add Card > Manual.
+
+type: custom:apexcharts-card
+graph_span: 24h
+span:
+  start: minute
+header:
+  show: true
+  title: Solar Forecast
+apex_config:
+  chart:
+    toolbar:
+      show: false
+  xaxis:
+    type: datetime
+  yaxis:
+    min: 0
+    labels:
+      formatter: |
+        EVAL:val => val >= 1000
+          ? (val / 1000).toFixed(1) + ' kW'
+          : Math.round(val) + ' W'
+series:
+  - entity: sensor.moixa_gridshare_forecast_solar_production
+    name: Solar
+    type: area
+    color: '#FFA726'
+    opacity: 0.3
+    data_generator: |
+      return entity.attributes.forecast.map(p => [
+        new Date(p.ts).getTime(),
+        p.W
+      ]);
+  - entity: sensor.moixa_gridshare_forecast_consumption
+    name: Home
+    type: line
+    color: '#42A5F5'
+    data_generator: |
+      return entity.attributes.forecast.map(p => [
+        new Date(p.ts).getTime(),
+        p.W
+      ]);

@@ -1,0 +1,55 @@
+# Off-Peak Charging Blueprint
+#
+# Switches to Schedule mode at the start of your off-peak window so the
+# battery charges during cheap-rate electricity, then returns to Smart mode
+# when the window ends.
+#
+# Prerequisites: add a charge/discharge slot to your weekly Moixa schedule
+# covering the off-peak window first, either via the Moixa app or the
+# moixa.add_schedule_intent service.
+#
+# Install: copy to config/blueprints/automation/moixa/offpeak_charge.yaml
+# then reload blueprints via Developer Tools > YAML > Reload all YAML.
+
+blueprint:
+  name: Moixa Off-Peak Charging
+  description: >
+    Switches to Schedule mode at off-peak start so the battery charges on
+    cheap-rate electricity, then returns to Smart mode at off-peak end.
+    Requires a charge/discharge slot already configured in your Moixa
+    weekly schedule.
+  domain: automation
+  input:
+    offpeak_start:
+      name: Off-peak start time
+      selector:
+        time: {}
+    offpeak_end:
+      name: Off-peak end time
+      selector:
+        time: {}
+
+trigger:
+  - platform: time
+    at: !input offpeak_start
+    id: start
+  - platform: time
+    at: !input offpeak_end
+    id: end
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: start
+        sequence:
+          - action: moixa.set_operation_mode
+            data:
+              mode: schedule
+      - conditions:
+          - condition: trigger
+            id: end
+        sequence:
+          - action: moixa.set_operation_mode
+            data:
+              mode: smart

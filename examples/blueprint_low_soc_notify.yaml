@@ -1,0 +1,48 @@
+# Low Battery Notification Blueprint
+#
+# Sends a notification when the battery state of charge drops below a
+# configurable threshold. Waits 5 minutes before firing to avoid spurious
+# alerts on brief dips.
+#
+# Install: copy to config/blueprints/automation/moixa/low_soc_notify.yaml
+# then reload blueprints via Developer Tools > YAML > Reload all YAML.
+
+blueprint:
+  name: Moixa Low Battery Notification
+  description: >
+    Sends a notification when battery state of charge drops below a threshold
+    for more than 5 minutes.
+  domain: automation
+  input:
+    soc_threshold:
+      name: Low SoC threshold (%)
+      description: Trigger when battery drops below this level.
+      default: 20
+      selector:
+        number:
+          min: 5
+          max: 50
+          step: 5
+          unit_of_measurement: "%"
+    notify_service:
+      name: Notification service
+      description: "e.g. notify.mobile_app_my_phone or notify.notify"
+      default: notify.notify
+      selector:
+        text: {}
+
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.moixa_gridshare_battery_state_of_charge
+    below: !input soc_threshold
+    for:
+      minutes: 5
+
+action:
+  - service: !input notify_service
+    data:
+      title: Moixa Battery Low
+      message: >
+        Battery is at
+        {{ states('sensor.moixa_gridshare_battery_state_of_charge') | round | int }}%
+        (mode: {{ states('select.moixa_gridshare_operation_mode') }}).

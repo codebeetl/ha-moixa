@@ -1,0 +1,20 @@
+# Solar Forecast - next 24h solar production and home consumption forecast.
+# Add to your dashboard via Edit > Add Card > Manual.
+# Shows up to 16 half-hour slots (8 hours). Increase the limit as needed.
+
+type: markdown
+title: Solar Forecast
+content: |
+  {% set solar = state_attr('sensor.moixa_gridshare_forecast_solar_production', 'forecast') %}
+  {% set cons  = state_attr('sensor.moixa_gridshare_forecast_consumption', 'forecast') %}
+  {% if solar and cons %}
+  | Time | Solar | Home |
+  |------|------:|-----:|
+  {% set n = [solar | length, cons | length, 16] | min %}
+  {% for i in range(n) %}
+  {%- set ts = solar[i].ts | as_datetime | as_local %}
+  | {{ ts.strftime('%-I:%M %p') }} | {{ solar[i].W | round | int }} W | {{ cons[i].W | round | int }} W |
+  {% endfor %}
+  {% else %}
+  No forecast data.
+  {% endif %}

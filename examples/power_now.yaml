@@ -1,0 +1,24 @@
+# Power Now - live Moixa power readings at a glance.
+# Add to your dashboard via Edit > Add Card > Manual.
+# Adjust entity IDs if yours differ (Settings > Devices & Services > Moixa).
+
+type: glance
+title: Power Now
+columns: 4
+entities:
+  - entity: sensor.moixa_gridshare_solar_production
+    name: Solar
+  - entity: sensor.moixa_gridshare_home_consumption
+    name: Home
+  - entity: sensor.moixa_gridshare_grid_import
+    name: Grid In
+  - entity: sensor.moixa_gridshare_grid_export
+    name: Grid Out
+  - entity: sensor.moixa_gridshare_battery_charging
+    name: Bat In
+  - entity: sensor.moixa_gridshare_battery_discharging
+    name: Bat Out
+  - entity: sensor.moixa_gridshare_battery_state_of_charge
+    name: Battery
+  - entity: select.moixa_gridshare_operation_mode
+    name: Mode
