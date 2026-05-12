@@ -15,6 +15,14 @@
         "data": {
           "password": "Password"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Moixa",
+        "description": "Update the credentials for this Moixa / GridShare account.",
+        "data": {
+          "username": "Email address",
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -24,7 +32,8 @@
     },
     "abort": {
       "already_configured": "This Moixa account is already configured.",
-      "reauth_successful": "Re-authentication was successful."
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Credentials updated successfully."
     }
   },
   "entity": {

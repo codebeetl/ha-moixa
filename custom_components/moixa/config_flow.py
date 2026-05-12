@@ -83,6 +83,52 @@ class MoixaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration (change username/password without re-adding)."""
+        errors: dict[str, str] = {}
+        entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            try:
+                site_id = await self.hass.async_add_executor_job(
+                    _do_login,
+                    user_input[CONF_USERNAME],
+                    user_input[CONF_PASSWORD],
+                )
+            except MoixaAuthError:
+                errors["base"] = "invalid_auth"
+            except MoixaError:
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("Unexpected error during Moixa reconfigure")
+                errors["base"] = "unknown"
+            else:
+                existing = self.hass.config_entries.async_entry_for_domain_unique_id(
+                    DOMAIN, site_id
+                )
+                if existing and existing.entry_id != entry.entry_id:
+                    return self.async_abort(reason="already_configured")
+                return self.async_update_reload_and_abort(
+                    entry,
+                    unique_id=site_id,
+                    title=user_input[CONF_USERNAME],
+                    data_updates=user_input,
+                    reason="reconfigure_successful",
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default=entry.data[CONF_USERNAME]): _EMAIL_SELECTOR,
+                    vol.Required(CONF_PASSWORD): _PASSWORD_SELECTOR,
+                }
+            ),
+            errors=errors,
+        )
+
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:

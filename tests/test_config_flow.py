@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from homeassistant.config_entries import SOURCE_REAUTH, SOURCE_USER
+from homeassistant.config_entries import SOURCE_REAUTH, SOURCE_RECONFIGURE, SOURCE_USER
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -154,3 +154,73 @@ async def test_reauth_flow_invalid_auth(hass: HomeAssistant) -> None:
 
     assert result2["type"] == FlowResultType.FORM
     assert result2["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reconfigure_flow_success(hass: HomeAssistant) -> None:
+    """Reconfigure with new credentials updates the entry data and reloads."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, unique_id=MOCK_SITE_ID, version=1
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    new_config = {CONF_USERNAME: "new@example.com", CONF_PASSWORD: "newpassword"}
+    with (
+        patch(_DO_LOGIN, return_value=MOCK_SITE_ID),
+        patch("homeassistant.config_entries.ConfigEntries.async_reload"),
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input=new_config
+        )
+        await hass.async_block_till_done()
+
+    assert result2["type"] == FlowResultType.ABORT
+    assert result2["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_USERNAME] == "new@example.com"
+    assert entry.data[CONF_PASSWORD] == "newpassword"
+
+
+async def test_reconfigure_flow_invalid_auth(hass: HomeAssistant) -> None:
+    """Reconfigure with bad credentials shows the invalid_auth error."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, unique_id=MOCK_SITE_ID, version=1
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    with patch(_DO_LOGIN, side_effect=MoixaAuthError("bad password")):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input=MOCK_CONFIG
+        )
+
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reconfigure_flow_cannot_connect(hass: HomeAssistant) -> None:
+    """Reconfigure with a connection failure shows the cannot_connect error."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, unique_id=MOCK_SITE_ID, version=1
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    with patch(_DO_LOGIN, side_effect=MoixaError("no sites")):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input=MOCK_CONFIG
+        )
+
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["errors"] == {"base": "cannot_connect"}
