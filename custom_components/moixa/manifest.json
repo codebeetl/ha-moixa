@@ -1,7 +1,9 @@
 {
   "domain": "moixa",
   "name": "Moixa",
-  "codeowners": ["@codebeetl"],
+  "codeowners": [
+    "@codebeetl"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/codebeetl/ha-moixa",
   "integration_type": "hub",
@@ -13,5 +15,5 @@
     "boto3>=1.26.0",
     "requests>=2.31.0"
   ],
-  "version": "0.1.12"
+  "version": "0.1.13"
 }
