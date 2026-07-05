@@ -1,12 +1,12 @@
 {
   "domain": "moixa",
   "name": "Moixa",
-  "codeowners": [],
+  "codeowners": ["@codebeetl"],
   "config_flow": true,
-  "documentation": "https://github.com/ifayers/ha-moixa",
+  "documentation": "https://github.com/codebeetl/ha-moixa",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/ifayers/ha-moixa/issues",
+  "issue_tracker": "https://github.com/codebeetl/ha-moixa/issues",
   "requirements": [
     "pycognito>=0.3.0",
     "aws-requests-auth>=0.4.3",

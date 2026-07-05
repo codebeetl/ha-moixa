@@ -1,7 +1,7 @@
 # Moixa - Home Assistant integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![License](https://img.shields.io/github/license/ifayers/ha-moixa)](./LICENSE)
+[![License](https://img.shields.io/github/license/codebeetl/ha-moixa)](./LICENSE)
 
 Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) GridShare smart battery system. Polls the GridShare cloud API every 5 minutes and exposes power flow, battery state, and operation mode as Home Assistant entities.
 
