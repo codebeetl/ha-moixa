@@ -33,13 +33,21 @@ jobs:
         id: version
         run: |
           current=$(jq -r .version custom_components/moixa/manifest.json)
+          # A manual bump in manifest.json (e.g. a new minor) is released as-is
+          if [ -z "$(git ls-remote --tags origin "refs/tags/v$current")" ]; then
+            echo "new=$current" >> "$GITHUB_OUTPUT"
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           IFS='.' read -r major minor patch <<< "$current"
           new="$major.$minor.$((patch + 1))"
           jq --arg v "$new" '.version = $v' custom_components/moixa/manifest.json > tmp.json \
             && mv tmp.json custom_components/moixa/manifest.json
           echo "new=$new" >> "$GITHUB_OUTPUT"
+          echo "bumped=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit bumped manifest
+        if: steps.version.outputs.bumped == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
