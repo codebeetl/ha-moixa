@@ -215,7 +215,9 @@ async def test_sensor_device_info(
     from homeassistant.helpers import device_registry as dr
 
     device_registry = dr.async_get(hass)
-    device = device_registry.async_get_device(identifiers={(DOMAIN, MOCK_SITE_ID)})
+    device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, MOCK_SITE_ID), loaded_entry.entry_id
+    )
     assert device is not None
     assert device.manufacturer == "Moixa"
     assert device.model == "Smart Battery"

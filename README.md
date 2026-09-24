@@ -43,7 +43,7 @@ The two forecast sensors expose the full 24-hour ahead series (30-min slots) as 
 
 ## Requirements
 
-- Home Assistant **2024.11** or newer.
+- Home Assistant **2026.6** or newer.
 - A Moixa / GridShare account (the email and password you use to log in to the GridShare mobile app).
 - HACS installed, or willingness to copy files manually.
 
