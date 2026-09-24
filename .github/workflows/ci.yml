@@ -10,8 +10,8 @@ jobs:
     name: Run tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - name: Install dependencies
@@ -27,19 +27,27 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Bump patch version in manifest.json
         id: version
         run: |
           current=$(jq -r .version custom_components/moixa/manifest.json)
+          # A manual bump in manifest.json (e.g. a new minor) is released as-is
+          if [ -z "$(git ls-remote --tags origin "refs/tags/v$current")" ]; then
+            echo "new=$current" >> "$GITHUB_OUTPUT"
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           IFS='.' read -r major minor patch <<< "$current"
           new="$major.$minor.$((patch + 1))"
           jq --arg v "$new" '.version = $v' custom_components/moixa/manifest.json > tmp.json \
             && mv tmp.json custom_components/moixa/manifest.json
           echo "new=$new" >> "$GITHUB_OUTPUT"
+          echo "bumped=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit bumped manifest
+        if: steps.version.outputs.bumped == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
