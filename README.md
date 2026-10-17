@@ -70,7 +70,7 @@ The two forecast sensors expose the full 24-hour ahead series (30-min slots) as 
 1. Go to **Settings -> Devices & services -> Add integration**.
 2. Search for **Moixa** and select it.
 3. Enter the **email address** and **password** from your GridShare account.
-4. The integration authenticates, discovers your site, and creates a device with seven sensor entities and one select entity.
+4. The integration authenticates, discovers your site, and creates a device with fifteen sensor entities and one select entity.
 
 There is no YAML configuration. All settings are managed through the UI.
 
@@ -187,6 +187,25 @@ The current schedule in the same shape is in the `windows` attribute of `select.
 |---|---|
 | `index` *(required)* | Index of the slot to remove (duration transferred to neighbour) |
 
+### Example: set the whole week
+
+Charge from 01:30 to 05:00 every day and hold the battery idle on weekday evenings. Everything else stays on `balance`:
+
+```yaml
+action:
+  - service: moixa.set_schedule
+    data:
+      windows:
+        - start: "01:30"
+          end: "05:00"
+          kind: "charge/discharge"
+          power_watts: 2500
+        - start: "17:00"
+          end: "19:00"
+          days: [mon, tue, wed, thu, fri]
+          kind: idle
+```
+
 ### Example: free-energy charge window
 
 Add a forced charge slot during an off-tariff window, switch to schedule mode for the duration, then return to smart mode:
@@ -231,11 +250,11 @@ The integration supports Home Assistant's built-in diagnostics. Go to **Settings
 ### Setup
 
 ```bash
-git clone https://github.com/ifayers/ha-moixa
+git clone https://github.com/codebeetl/ha-moixa
 cd ha-moixa
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[test]"
+pip install ".[test]"
 ```
 
 ### Run tests
@@ -243,6 +262,8 @@ pip install -e ".[test]"
 ```bash
 pytest tests/ -v
 ```
+
+Use a regular install, not `pip install -e`: Home Assistant's custom component loader cannot scan an editable install. Python 3.14.2 or newer is required.
 
 `pytest-homeassistant-custom-component` provides the `hass` fixture and all HA testing infrastructure. All tests mock the Moixa API so no real credentials or network access are needed.
 
@@ -275,17 +296,21 @@ custom_components/moixa/
     select.py            # operation mode select entity
     sensor.py            # power sensors, forecast sensors, intent sensor, energy sensors
     services.yaml        # service UI descriptions
+    windows.py           # schedule window <-> service/attribute dict conversion
     translations/
         en.json          # UI strings
-    moixa_api/            # bundled GridShare API client (synced from codebeetl/moixa-api)
+    moixa_api/           # bundled GridShare API client (synced from codebeetl/moixa-api)
 tests/
-    conftest.py          # shared fixtures
-    const.py             # mock data
-    test_coordinator.py  # unit tests for JTS parsing
-    test_config_flow.py  # config flow tests
-    test_init.py         # setup / unload / error handling
-    test_select.py       # operation mode select entity tests
-    test_sensor.py       # sensor entity tests
+    conftest.py              # shared fixtures
+    const.py                 # mock data
+    test_coordinator.py      # unit tests for JTS parsing
+    test_config_flow.py      # config flow tests
+    test_forecast_sensor.py  # forecast sensor tests
+    test_init.py             # setup / unload / error handling
+    test_intent_sensor.py    # current intent sensor tests
+    test_select.py           # operation mode select entity tests
+    test_sensor.py           # sensor entity tests
+    test_services.py         # service call tests
 ```
 
 ---
@@ -296,6 +321,7 @@ tests/
 - **Executor wrapping**: The `moixa_api` library is fully synchronous (uses `requests` and `boto3`). Every API call runs in HA's thread-pool executor via `async_add_executor_job` to avoid blocking the event loop.
 - **Poll interval**: 5 minutes, 6 API calls per cycle (core readings, device status, operation mode, forecasts, schedule, intent time series). The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
 - **Energy sensors**: The five `*_energy` sensors accumulate kWh using a trapezoidal approximation between polls. State persists across HA restarts via `RestoreEntity`. After a coordinator failure, the elapsed-time baseline is reset so the recovery poll does not over-count the outage gap. All five sensors are immediately available in the Energy Dashboard source picker - no manual helper setup required.
+- **Schedule slots**: The API stores each slot's `durationMinutes` as its end offset within the 7-day period. The bundled library converts to slot lengths for edits and validates the plan before saving. Times in the `windows` attribute and in `set_schedule` use Home Assistant's time zone at the moment of the call.
 - **Operation mode**: The GridShare platform manages a nightly AI-computed schedule (`smart` mode). Switching to `simple` or `schedule` hands control back to fixed rules or a user-defined schedule.
 
 ---
