@@ -11,6 +11,7 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import MoixaCoordinator
+from .windows import WEEKDAYS, dict_to_window
 
 type MoixaConfigEntry = ConfigEntry[MoixaCoordinator]
 
@@ -25,6 +26,25 @@ _ADD_INTENT_SCHEMA = vol.Schema({
     vol.Optional("soc_min", default=0.1): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
     vol.Optional("soc_max", default=1.0): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
     vol.Optional("power_watts"): vol.All(vol.Coerce(float), vol.Range(min=0, max=10000)),
+})
+
+_SOC = vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0))
+_WATTS = vol.All(vol.Coerce(float), vol.Range(min=-10000, max=10000))
+
+_WINDOW_SCHEMA = vol.Schema({
+    vol.Required("start"): cv.time,
+    vol.Required("end"): cv.time,
+    vol.Required("kind"): vol.In(["balance", "charge/discharge", "idle"]),
+    vol.Optional("days"): vol.All(cv.ensure_list, [vol.In(WEEKDAYS)]),
+    vol.Optional("soc_min"): _SOC,
+    vol.Optional("soc_max"): _SOC,
+    vol.Optional("power_watts"): _WATTS,
+    vol.Optional("power_watts_min"): _WATTS,
+    vol.Optional("power_watts_max"): _WATTS,
+})
+
+_SET_SCHEDULE_SCHEMA = vol.Schema({
+    vol.Required("windows"): [_WINDOW_SCHEMA],
 })
 
 _REMOVE_SLOT_SCHEMA = vol.Schema({
@@ -56,12 +76,18 @@ def _register_services(hass: HomeAssistant) -> None:
                 power_watts=call.data.get("power_watts"),
             )
 
+    async def handle_set_schedule(call: ServiceCall) -> None:
+        windows = [dict_to_window(window) for window in call.data["windows"]]
+        for coordinator in _loaded_coordinators(hass):
+            await coordinator.async_set_schedule(windows)
+
     async def handle_remove_schedule_slot(call: ServiceCall) -> None:
         for coordinator in _loaded_coordinators(hass):
             await coordinator.async_remove_schedule_slot(call.data["index"])
 
     hass.services.async_register(DOMAIN, "set_operation_mode", handle_set_operation_mode, schema=_SET_MODE_SCHEMA)
     hass.services.async_register(DOMAIN, "add_schedule_intent", handle_add_schedule_intent, schema=_ADD_INTENT_SCHEMA)
+    hass.services.async_register(DOMAIN, "set_schedule", handle_set_schedule, schema=_SET_SCHEDULE_SCHEMA)
     hass.services.async_register(DOMAIN, "remove_schedule_slot", handle_remove_schedule_slot, schema=_REMOVE_SLOT_SCHEMA)
 
 
@@ -91,5 +117,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: MoixaConfigEntry) -> bo
         if not remaining:
             hass.services.async_remove(DOMAIN, "set_operation_mode")
             hass.services.async_remove(DOMAIN, "add_schedule_intent")
+            hass.services.async_remove(DOMAIN, "set_schedule")
             hass.services.async_remove(DOMAIN, "remove_schedule_slot")
     return unloaded

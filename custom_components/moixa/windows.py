@@ -4,9 +4,22 @@ from __future__ import annotations
 
 from typing import Any
 
-from .moixa_api.schedule_windows import ScheduleWindow
+from .moixa_api.schedule_windows import ALL_DAYS, ScheduleWindow
 
 WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+def dict_to_window(data: dict[str, Any]) -> ScheduleWindow:
+    """Return the window described by a validated service call dict."""
+    days = tuple(WEEKDAYS.index(day) for day in data["days"]) if "days" in data else ALL_DAYS
+    fields = {
+        key: data[key]
+        for key in ("soc_min", "soc_max", "power_watts", "power_watts_min", "power_watts_max")
+        if key in data
+    }
+    return ScheduleWindow(
+        start=data["start"], end=data["end"], kind=data["kind"], days=days, **fields
+    )
 
 
 def window_to_dict(window: ScheduleWindow) -> dict[str, Any]:

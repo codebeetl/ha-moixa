@@ -84,6 +84,27 @@ add_schedule_intent:
           unit_of_measurement: W
           mode: box
 
+set_schedule:
+  name: Set Schedule
+  description: >
+    Replace the whole weekly schedule with a list of windows in Home Assistant's
+    time zone. Time not covered by a window becomes "balance". Overlapping
+    windows are rejected.
+  fields:
+    windows:
+      name: Windows
+      description: >
+        List of windows. Each has start and end (HH:MM), kind (balance,
+        charge/discharge or idle) and optional days (mon-sun, default every
+        day), soc_min, soc_max, power_watts (required for charge/discharge),
+        power_watts_min and power_watts_max. An end of 00:00 means the end of
+        the day. An end at or before the start runs past midnight.
+      required: true
+      example: >
+        [{"start": "01:30", "end": "05:00", "kind": "charge/discharge", "power_watts": 2500}]
+      selector:
+        object:
+
 remove_schedule_slot:
   name: Remove Schedule Slot
   description: >

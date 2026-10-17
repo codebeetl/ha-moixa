@@ -126,7 +126,7 @@ action:
 
 ## Services (Actions)
 
-Three services are registered under the `moixa` domain and are available in **Developer Tools -> Actions** and in automations.
+These services are registered under the `moixa` domain and are available in **Developer Tools -> Actions** and in automations.
 
 ### `moixa.set_operation_mode`
 
@@ -148,6 +148,26 @@ Inserts a slot into the weekly schedule. The slot's duration is borrowed from th
 | `power_watts` | | Required for `charge/discharge` kind |
 
 Slot indices can be read from the `schedule` attribute of `select.moixa_gridshare_operation_mode`.
+
+### `moixa.set_schedule`
+
+Replaces the whole weekly schedule with a list of windows. Times are in Home Assistant's time zone. Time not covered by a window becomes `balance`. Overlapping windows are rejected.
+
+| Parameter | Description |
+|---|---|
+| `windows` *(required)* | List of windows, each with the fields below |
+
+| Window field | Default | Description |
+|---|---|---|
+| `start`, `end` *(required)* | | `HH:MM`. An `end` of `00:00` means the end of the day. An `end` at or before `start` runs past midnight |
+| `kind` *(required)* | | `balance`, `charge/discharge`, or `idle` |
+| `days` | every day | List of `mon` to `sun` |
+| `soc_min` | `0.1` | Minimum SOC during the window (fraction) |
+| `soc_max` | `1.0` | Target SOC ceiling (fraction) |
+| `power_watts` | | Required for `charge/discharge` kind |
+| `power_watts_min`, `power_watts_max` | `-20`, `20` | Power band for `balance` kind |
+
+The current schedule in the same shape is in the `windows` attribute of `select.moixa_gridshare_operation_mode`.
 
 ### `moixa.remove_schedule_slot`
 

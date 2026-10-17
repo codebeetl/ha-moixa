@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import DOMAIN, SCAN_INTERVAL
 from .moixa_api import MoixaCognitoAuth, MoixaClient
 from .moixa_api.exceptions import MoixaAuthError, MoixaError
+from .moixa_api.schedule_windows import ScheduleWindow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -223,6 +224,16 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
                 soc_min=soc_min,
                 soc_max=soc_max,
                 power_watts=power_watts,
+            )
+        )
+        await self.async_request_refresh()
+
+    async def async_set_schedule(self, windows: list[ScheduleWindow]) -> None:
+        """Replace the weekly schedule with windows given in Home Assistant's time zone."""
+        assert self._client is not None
+        await self.hass.async_add_executor_job(
+            lambda: self._client.set_schedule(
+                self.battery_device_id, windows, tz=self.hass.config.time_zone
             )
         )
         await self.async_request_refresh()
