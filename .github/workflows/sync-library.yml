@@ -19,7 +19,7 @@ jobs:
 
       - name: Sync library files
         run: |
-          rsync -av --delete --exclude='cli.py' \
+          rsync -av --delete --exclude='cli.py' --exclude='mcp_server.py' \
             /tmp/moixa-api/moixa_api/ \
             custom_components/moixa/moixa_api/
 

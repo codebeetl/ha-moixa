@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ha-moixa"
 version = "1.0.0"
-requires-python = ">=3.14"
+requires-python = ">=3.14.2"
 dependencies = [
     "pycognito>=2024.5.1",
     "aws-requests-auth>=0.4.3",
-    "boto3>=1.42.97",
+    "boto3>=1.43.40",
     "requests>=2.34.2",
 ]
 
@@ -17,8 +17,8 @@ dependencies = [
 test = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
-    "pytest-homeassistant-custom-component>=0.13.366",
-    "syrupy>=6.0.0",
+    "pytest-homeassistant-custom-component>=0.13.373",
+    "syrupy>=6.1.1",
 ]
 
 [tool.pytest.ini_options]
