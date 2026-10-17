@@ -228,6 +228,14 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
         )
         await self.async_request_refresh()
 
+    async def async_edit_schedule_intent(self, index: int, **changes: str | float) -> None:
+        """Change fields of an intent slot in the weekly schedule."""
+        assert self._client is not None
+        await self.hass.async_add_executor_job(
+            lambda: self._client.edit_schedule_intent(self.battery_device_id, index, **changes)
+        )
+        await self.async_request_refresh()
+
     async def async_set_schedule(self, windows: list[ScheduleWindow]) -> None:
         """Replace the weekly schedule with windows given in Home Assistant's time zone."""
         assert self._client is not None

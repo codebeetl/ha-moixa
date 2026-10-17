@@ -13,7 +13,13 @@ from custom_components.moixa.moixa_api.schedule_windows import ScheduleWindow
 
 from .const import MOCK_SITE_ID
 
-SERVICES = ("set_operation_mode", "add_schedule_intent", "set_schedule", "remove_schedule_slot")
+SERVICES = (
+    "set_operation_mode",
+    "add_schedule_intent",
+    "edit_schedule_intent",
+    "set_schedule",
+    "remove_schedule_slot",
+)
 
 
 async def test_services_registered(hass: HomeAssistant, loaded_entry: MockConfigEntry) -> None:
@@ -59,6 +65,21 @@ async def test_add_schedule_intent_service(
         soc_max=0.9,
         power_watts=2000.0,
     )
+
+
+async def test_edit_schedule_intent_service(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    """edit_schedule_intent service passes only the supplied fields to the coordinator."""
+    coordinator: MoixaCoordinator = loaded_entry.runtime_data
+    with patch.object(coordinator, "async_edit_schedule_intent", new_callable=AsyncMock) as mock:
+        await hass.services.async_call(
+            DOMAIN,
+            "edit_schedule_intent",
+            {"index": 1, "duration_minutes": 90, "soc_max": 0.8},
+            blocking=True,
+        )
+    mock.assert_awaited_once_with(1, duration_minutes=90, soc_max=0.8)
 
 
 async def test_remove_schedule_slot_service(

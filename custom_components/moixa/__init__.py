@@ -28,6 +28,15 @@ _ADD_INTENT_SCHEMA = vol.Schema({
     vol.Optional("power_watts"): vol.All(vol.Coerce(float), vol.Range(min=0, max=10000)),
 })
 
+_EDIT_INTENT_SCHEMA = vol.Schema({
+    vol.Required("index"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    vol.Optional("kind"): vol.In(["balance", "charge/discharge", "idle"]),
+    vol.Optional("duration_minutes"): vol.All(vol.Coerce(int), vol.Range(min=1, max=10080)),
+    vol.Optional("soc_min"): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
+    vol.Optional("soc_max"): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
+    vol.Optional("power_watts"): vol.All(vol.Coerce(float), vol.Range(min=0, max=10000)),
+})
+
 _SOC = vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0))
 _WATTS = vol.All(vol.Coerce(float), vol.Range(min=-10000, max=10000))
 
@@ -76,6 +85,11 @@ def _register_services(hass: HomeAssistant) -> None:
                 power_watts=call.data.get("power_watts"),
             )
 
+    async def handle_edit_schedule_intent(call: ServiceCall) -> None:
+        changes = {key: value for key, value in call.data.items() if key != "index"}
+        for coordinator in _loaded_coordinators(hass):
+            await coordinator.async_edit_schedule_intent(call.data["index"], **changes)
+
     async def handle_set_schedule(call: ServiceCall) -> None:
         windows = [dict_to_window(window) for window in call.data["windows"]]
         for coordinator in _loaded_coordinators(hass):
@@ -87,6 +101,7 @@ def _register_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(DOMAIN, "set_operation_mode", handle_set_operation_mode, schema=_SET_MODE_SCHEMA)
     hass.services.async_register(DOMAIN, "add_schedule_intent", handle_add_schedule_intent, schema=_ADD_INTENT_SCHEMA)
+    hass.services.async_register(DOMAIN, "edit_schedule_intent", handle_edit_schedule_intent, schema=_EDIT_INTENT_SCHEMA)
     hass.services.async_register(DOMAIN, "set_schedule", handle_set_schedule, schema=_SET_SCHEDULE_SCHEMA)
     hass.services.async_register(DOMAIN, "remove_schedule_slot", handle_remove_schedule_slot, schema=_REMOVE_SLOT_SCHEMA)
 
@@ -117,6 +132,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: MoixaConfigEntry) -> bo
         if not remaining:
             hass.services.async_remove(DOMAIN, "set_operation_mode")
             hass.services.async_remove(DOMAIN, "add_schedule_intent")
+            hass.services.async_remove(DOMAIN, "edit_schedule_intent")
             hass.services.async_remove(DOMAIN, "set_schedule")
             hass.services.async_remove(DOMAIN, "remove_schedule_slot")
     return unloaded

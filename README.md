@@ -149,6 +149,18 @@ Inserts a slot into the weekly schedule. The slot's duration is borrowed from th
 
 Slot indices can be read from the `schedule` attribute of `select.moixa_gridshare_operation_mode`.
 
+### `moixa.edit_schedule_intent`
+
+Changes an existing slot. Only the supplied fields change. A new duration is taken from or given to the neighbouring slot.
+
+| Parameter | Description |
+|---|---|
+| `index` *(required)* | Index of the slot to edit |
+| `kind` | `balance`, `charge/discharge`, or `idle` |
+| `duration_minutes` | New length of the slot in minutes |
+| `soc_min`, `soc_max` | SOC limits (fraction) |
+| `power_watts` | Charge/discharge power |
+
 ### `moixa.set_schedule`
 
 Replaces the whole weekly schedule with a list of windows. Times are in Home Assistant's time zone. Time not covered by a window becomes `balance`. Overlapping windows are rejected.

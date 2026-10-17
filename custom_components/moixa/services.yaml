@@ -84,6 +84,69 @@ add_schedule_intent:
           unit_of_measurement: W
           mode: box
 
+edit_schedule_intent:
+  name: Edit Schedule Intent
+  description: >
+    Change fields of an existing intent slot in the weekly schedule. Only the
+    fields you supply are changed. A new duration is taken from or given to the
+    neighbouring slot. Find indices in the schedule attribute of the Operation
+    Mode entity.
+  fields:
+    index:
+      name: Index
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: box
+    kind:
+      name: Kind
+      required: false
+      selector:
+        select:
+          options:
+            - balance
+            - "charge/discharge"
+            - idle
+    duration_minutes:
+      name: Duration (minutes)
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 10080
+          unit_of_measurement: min
+          mode: box
+    soc_min:
+      name: Minimum SOC
+      description: Minimum battery state of charge (0.0 - 1.0).
+      required: false
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.01
+    soc_max:
+      name: Maximum SOC target
+      description: Target battery state of charge (0.0 - 1.0).
+      required: false
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.01
+    power_watts:
+      name: Power (W)
+      description: Charge/discharge power in watts.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: W
+          mode: box
+
 set_schedule:
   name: Set Schedule
   description: >
