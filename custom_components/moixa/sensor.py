@@ -39,7 +39,7 @@ def _device_info(coordinator: MoixaCoordinator) -> DeviceInfo:
 class MoixaSensorEntityDescription(SensorEntityDescription):
     """Sensor description with a typed value extractor."""
 
-    value_fn: Callable[[MoixaData], float | None]
+    value_fn: Callable[[MoixaData], float | datetime | None]
 
 
 _SENSOR_DESCRIPTIONS: tuple[MoixaSensorEntityDescription, ...] = (
@@ -51,6 +51,20 @@ _SENSOR_DESCRIPTIONS: tuple[MoixaSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         suggested_display_precision=1,
         value_fn=lambda d: d.battery_soc,
+    ),
+    MoixaSensorEntityDescription(
+        key="soc_rate",
+        translation_key="soc_rate",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=f"{PERCENTAGE}/h",
+        suggested_display_precision=1,
+        value_fn=lambda d: d.soc_rate_per_hour,
+    ),
+    MoixaSensorEntityDescription(
+        key="soc_limit_time",
+        translation_key="soc_limit_time",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda d: d.soc_limit_time,
     ),
     MoixaSensorEntityDescription(
         key="home_consumption",
@@ -225,7 +239,7 @@ class MoixaSensor(CoordinatorEntity[MoixaCoordinator], SensorEntity):
         self._attr_device_info = _device_info(coordinator)
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> float | datetime | None:
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)

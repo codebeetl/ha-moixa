@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from collections import deque
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 
 from requests import HTTPError
@@ -11,11 +12,13 @@ from requests import HTTPError
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, SCAN_INTERVAL
+from .const import DOMAIN, SCAN_INTERVAL, SOC_HISTORY_WINDOW
 from .moixa_api import MoixaCognitoAuth, MoixaClient
 from .moixa_api.exceptions import MoixaAuthError, MoixaError
 from .moixa_api.schedule_windows import ScheduleWindow
+from .soc_prediction import predict_limit_time, soc_rate_per_hour
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +41,10 @@ class MoixaData:
     schedule: dict | None = field(default=None)
     # 24-hour intent time series: list of {startTime, endTime, intent} dicts
     intent_series: list[dict] | None = field(default=None)
+    # SOC trend derived from recent polls, in percent per hour
+    soc_rate_per_hour: float | None = field(default=None)
+    # When SOC reaches the current intent's limit at the current rate
+    soc_limit_time: datetime | None = field(default=None)
 
 
 def _parse_core_readings(readings: dict) -> dict[str, float | None]:
@@ -98,6 +105,7 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
         self._username = username
         self._password = password
         self._client: MoixaClient | None = None
+        self._soc_history: deque[tuple[datetime, float]] = deque()
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
 
     async def _async_setup(self) -> None:
@@ -133,6 +141,23 @@ class MoixaCoordinator(DataUpdateCoordinator[MoixaData]):
         self._client = client
 
     async def _async_update_data(self) -> MoixaData:
+        """Fetch the latest readings and derive the SOC trend from recent polls."""
+        data = await self._async_fetch_data()
+        if data.battery_soc is None:
+            return data
+        now = dt_util.utcnow()
+        self._soc_history.append((now, data.battery_soc))
+        while self._soc_history[0][0] < now - SOC_HISTORY_WINDOW:
+            self._soc_history.popleft()
+        rate = soc_rate_per_hour(self._soc_history)
+        slot = data.intent_series[0] if data.intent_series else None
+        return replace(
+            data,
+            soc_rate_per_hour=rate,
+            soc_limit_time=predict_limit_time(data.battery_soc, rate, slot, now),
+        )
+
+    async def _async_fetch_data(self) -> MoixaData:
         """Fetch the latest readings from the API."""
         assert self._client is not None
         try:

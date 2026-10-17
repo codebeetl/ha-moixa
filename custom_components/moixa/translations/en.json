@@ -41,6 +41,12 @@
       "battery_soc": {
         "name": "Battery State of Charge"
       },
+      "soc_rate": {
+        "name": "Battery State of Charge Rate of Change"
+      },
+      "soc_limit_time": {
+        "name": "Battery Predicted Limit Time"
+      },
       "home_consumption": {
         "name": "Home Consumption"
       },

@@ -10,3 +10,4 @@ DOMAIN = "moixa"
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
 
 SCAN_INTERVAL = timedelta(minutes=5)
+SOC_HISTORY_WINDOW = timedelta(minutes=30)

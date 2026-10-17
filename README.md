@@ -14,6 +14,8 @@ Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) Gr
 | Sensor | Unit | Description |
 |---|---|---|
 | Battery State of Charge | % | Current battery charge level |
+| Battery State of Charge Rate of Change | %/h | How fast the charge level is rising (positive) or falling (negative), from the last 30 minutes of polls |
+| Battery Predicted Limit Time | timestamp | When the battery reaches the current intent's SOC limit at the current rate. Unknown when the rate is near zero or the limit is not reached before the current intent ends |
 | Home Consumption | W | Power currently being used in the home |
 | Grid Import | W | Power drawn from the grid |
 | Grid Export | W | Power exported to the grid |
@@ -70,7 +72,7 @@ The two forecast sensors expose the full 24-hour ahead series (30-min slots) as 
 1. Go to **Settings -> Devices & services -> Add integration**.
 2. Search for **Moixa** and select it.
 3. Enter the **email address** and **password** from your GridShare account.
-4. The integration authenticates, discovers your site, and creates a device with fifteen sensor entities and one select entity.
+4. The integration authenticates, discovers your site, and creates a device with seventeen sensor entities and one select entity.
 
 There is no YAML configuration. All settings are managed through the UI.
 
@@ -296,6 +298,7 @@ custom_components/moixa/
     select.py            # operation mode select entity
     sensor.py            # power sensors, forecast sensors, intent sensor, energy sensors
     services.yaml        # service UI descriptions
+    soc_prediction.py    # SOC rate of change and predicted limit time
     windows.py           # schedule window <-> service/attribute dict conversion
     translations/
         en.json          # UI strings
@@ -310,6 +313,8 @@ tests/
     test_intent_sensor.py    # current intent sensor tests
     test_select.py           # operation mode select entity tests
     test_sensor.py           # sensor entity tests
+    test_soc_prediction.py   # SOC rate and limit time calculations
+    test_soc_sensors.py      # SOC rate and limit time sensor tests
     test_services.py         # service call tests
 ```
 
@@ -320,6 +325,7 @@ tests/
 - **Authentication**: Moixa uses AWS Cognito SRP for login and SigV4-signed requests. All auth is handled by the bundled `moixa_api` library, which also refreshes tokens automatically on 401 responses. The coordinator additionally performs a full re-login on 403 responses (AWS identity credentials expire after ~1 hour).
 - **Executor wrapping**: The `moixa_api` library is fully synchronous (uses `requests` and `boto3`). Every API call runs in HA's thread-pool executor via `async_add_executor_job` to avoid blocking the event loop.
 - **Poll interval**: 5 minutes, 6 API calls per cycle (core readings, device status, operation mode, forecasts, schedule, intent time series). The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
+- **SOC trend sensors**: The GridShare API has no rate or limit-time fields, so both are derived. The rate is the least-squares slope of the SOC values polled in the last 30 minutes and needs at least 10 minutes of history after a restart. The limit is the current intent's maximum SOC while charging or minimum SOC while discharging, and the prediction assumes the rate stays constant.
 - **Energy sensors**: The five `*_energy` sensors accumulate kWh using a trapezoidal approximation between polls. State persists across HA restarts via `RestoreEntity`. After a coordinator failure, the elapsed-time baseline is reset so the recovery poll does not over-count the outage gap. All five sensors are immediately available in the Energy Dashboard source picker - no manual helper setup required.
 - **Schedule slots**: The API stores each slot's `durationMinutes` as its end offset within the 7-day period. The bundled library converts to slot lengths for edits and validates the plan before saving. Times in the `windows` attribute and in `set_schedule` use Home Assistant's time zone at the moment of the call.
 - **Operation mode**: The GridShare platform manages a nightly AI-computed schedule (`smart` mode). Switching to `simple` or `schedule` hands control back to fixed rules or a user-defined schedule.
