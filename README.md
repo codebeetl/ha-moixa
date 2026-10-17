@@ -33,7 +33,7 @@ Unofficial Home Assistant integration for the [Moixa](https://www.moixa.com/) Gr
 
 | Entity | Type | Description |
 |---|---|---|
-| Operation Mode | Select | Switch between **Smart**, **Schedule**, and **Simple** battery modes (weekly schedule plan in `schedule` attribute) |
+| Operation Mode | Select | Switch between **Smart**, **Schedule**, and **Simple** battery modes (weekly schedule plan in `schedule` attribute, the same schedule as per-day windows in Home Assistant's time zone in `windows` attribute) |
 
 All entities share a single **Moixa GridShare** device in Home Assistant.
 

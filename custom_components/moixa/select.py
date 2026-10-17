@@ -13,6 +13,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import MoixaCoordinator
+from .moixa_api.schedule_windows import plan_to_windows, utc_offset_minutes
+from .windows import window_to_dict
 
 OPERATION_MODES = ["smart", "schedule", "simple"]
 
@@ -54,7 +56,12 @@ class MoixaOperationModeSelect(CoordinatorEntity[MoixaCoordinator], SelectEntity
     def extra_state_attributes(self) -> dict[str, Any]:
         if self.coordinator.data is None or self.coordinator.data.schedule is None:
             return {}
-        return {"schedule": self.coordinator.data.schedule}
+        schedule = self.coordinator.data.schedule
+        offset = utc_offset_minutes(self.hass.config.time_zone)
+        return {
+            "schedule": schedule,
+            "windows": [window_to_dict(w) for w in plan_to_windows(schedule, offset)],
+        }
 
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.async_set_operation_mode(option)
