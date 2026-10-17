@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.moixa.const import DOMAIN
 from custom_components.moixa.coordinator import MoixaCoordinator
-from custom_components.moixa.moixa_py.exceptions import MoixaAuthError
+from custom_components.moixa.moixa_api.exceptions import MoixaAuthError
 
 from .conftest import _fake_login_and_discover
 from .const import MOCK_CONFIG, MOCK_MOIXA_DATA, MOCK_SITE_ID

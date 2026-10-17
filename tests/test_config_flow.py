@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.moixa.const import DOMAIN
-from custom_components.moixa.moixa_py.exceptions import MoixaAuthError, MoixaError
+from custom_components.moixa.moixa_api.exceptions import MoixaAuthError, MoixaError
 
 from .const import MOCK_CONFIG, MOCK_SITE_ID
 

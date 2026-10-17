@@ -13,8 +13,8 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN, SCAN_INTERVAL
-from .moixa_py import MoixaCognitoAuth, MoixaClient
-from .moixa_py.exceptions import MoixaAuthError, MoixaError
+from .moixa_api import MoixaCognitoAuth, MoixaClient
+from .moixa_api.exceptions import MoixaAuthError, MoixaError
 
 _LOGGER = logging.getLogger(__name__)
 

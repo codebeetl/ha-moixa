@@ -14,8 +14,8 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers import selector
 
 from .const import DOMAIN
-from .moixa_py import MoixaCognitoAuth, MoixaClient
-from .moixa_py.exceptions import MoixaAuthError, MoixaError
+from .moixa_api import MoixaCognitoAuth, MoixaClient
+from .moixa_api.exceptions import MoixaAuthError, MoixaError
 
 _LOGGER = logging.getLogger(__name__)
 

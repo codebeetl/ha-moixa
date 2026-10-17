@@ -216,9 +216,9 @@ pytest tests/ -v
 
 ### Library updates
 
-The bundled `moixa_py/` library is automatically synced from [codebeetl/moixa-api](https://github.com/codebeetl/moixa-api) by a nightly GitHub Actions workflow. When the upstream library changes, the sync workflow commits the updated files and the version-bump CI creates a new release automatically.
+The bundled `moixa_api/` library is automatically synced from [codebeetl/moixa-api](https://github.com/codebeetl/moixa-api) by a nightly GitHub Actions workflow. When the upstream library changes, the sync workflow commits the updated files and the version-bump CI creates a new release automatically.
 
-To trigger a manual sync: **Actions -> Sync moixa-py library -> Run workflow**.
+To trigger a manual sync: **Actions -> Sync moixa-api library -> Run workflow**.
 
 ### Releases
 
@@ -245,7 +245,7 @@ custom_components/moixa/
     services.yaml        # service UI descriptions
     translations/
         en.json          # UI strings
-    moixa_py/            # bundled GridShare API client (synced from codebeetl/moixa-api)
+    moixa_api/            # bundled GridShare API client (synced from codebeetl/moixa-api)
 tests/
     conftest.py          # shared fixtures
     const.py             # mock data
@@ -260,8 +260,8 @@ tests/
 
 ## Technical notes
 
-- **Authentication**: Moixa uses AWS Cognito SRP for login and SigV4-signed requests. All auth is handled by the bundled `moixa_py` library, which also refreshes tokens automatically on 401 responses. The coordinator additionally performs a full re-login on 403 responses (AWS identity credentials expire after ~1 hour).
-- **Executor wrapping**: The `moixa_py` library is fully synchronous (uses `requests` and `boto3`). Every API call runs in HA's thread-pool executor via `async_add_executor_job` to avoid blocking the event loop.
+- **Authentication**: Moixa uses AWS Cognito SRP for login and SigV4-signed requests. All auth is handled by the bundled `moixa_api` library, which also refreshes tokens automatically on 401 responses. The coordinator additionally performs a full re-login on 403 responses (AWS identity credentials expire after ~1 hour).
+- **Executor wrapping**: The `moixa_api` library is fully synchronous (uses `requests` and `boto3`). Every API call runs in HA's thread-pool executor via `async_add_executor_job` to avoid blocking the event loop.
 - **Poll interval**: 5 minutes, 6 API calls per cycle (core readings, device status, operation mode, forecasts, schedule, intent time series). The GridShare API's latest-reading endpoint is not a real-time stream, so polling more frequently does not yield fresher data.
 - **Energy sensors**: The five `*_energy` sensors accumulate kWh using a trapezoidal approximation between polls. State persists across HA restarts via `RestoreEntity`. After a coordinator failure, the elapsed-time baseline is reset so the recovery poll does not over-count the outage gap. All five sensors are immediately available in the Energy Dashboard source picker - no manual helper setup required.
 - **Operation mode**: The GridShare platform manages a nightly AI-computed schedule (`smart` mode). Switching to `simple` or `schedule` hands control back to fixed rules or a user-defined schedule.
